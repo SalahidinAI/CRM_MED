@@ -34,16 +34,27 @@ class UserProfile(AbstractUser):
     phone = PhoneNumberField(null=True, blank=True)
     role = models.CharField(max_length=32, choices=ROLE_CHOICES)
 
+    def __str__(self):
+        return f'{self.username}'
+
     class Meta:
         verbose_name = 'Main UserProfile'
 
 
 class Admin(UserProfile):
+
+    def __str__(self):
+        return f'{self.username}'
+
     class Meta:
         verbose_name = 'Admin'
 
 
 class Receptionist(UserProfile):
+
+    def __str__(self):
+        return f'{self.username}'
+
     class Meta:
         verbose_name = 'Receptionist'
 
@@ -51,13 +62,22 @@ class Receptionist(UserProfile):
 class Department(models.Model):
     department_name = models.CharField(max_length=64, unique=True)
 
+    def __str__(self):
+        return f'{self.department_name}'
+
 
 class JobTitle(models.Model):
     job_title = models.CharField(max_length=64, unique=True)
 
+    def __str__(self):
+        return f'{self.job_title}'
+
 
 class Room(models.Model):
     room_number = models.PositiveSmallIntegerField(unique=True)
+
+    def __str__(self):
+        return f'{self.room_number}'
 
 
 class Doctor(UserProfile):
@@ -65,6 +85,9 @@ class Doctor(UserProfile):
     job_title = models.ForeignKey(JobTitle, on_delete=models.CASCADE)
     room = models.ForeignKey(Room, on_delete=models.CASCADE)
     bonus = models.PositiveSmallIntegerField()
+
+    def __str__(self):
+        return f'{self.username} - {self.room}'
 
     class Meta:
         verbose_name = 'Doctor'
@@ -74,6 +97,9 @@ class ServiceType(models.Model):
     department = models.ForeignKey(Department, on_delete=models.CASCADE)
     type = models.CharField(max_length=32)
     price = models.PositiveSmallIntegerField()
+
+    def __str__(self):
+        return f'{self.department}: {self.type} - {self.price}'
 
     class Meta:
         unique_together = ('type', 'department')
@@ -94,7 +120,11 @@ class Patient(models.Model):
     # with_discount (сумма оплаты) (если это поле пуста то будем считать сумму в service_type
     with_discount = models.PositiveSmallIntegerField(null=True, blank=True)
     created_date = models.DateField(auto_now_add=True)
+    primary_patient = models.BooleanField(null=True, blank=True)
     info = models.TextField(null=True, blank=True)
+
+    def __str__(self):
+        return f'{self.name}'
 
 
 
