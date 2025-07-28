@@ -18,7 +18,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
 class AdminSerializer(serializers.ModelSerializer):
     class Meta:
         model = Admin
-        fields = '__all__'
+        fields = ['username', 'password', 'profile_image', 'email', 'phone']
 
 
 class ReceptionistSerializer(serializers.ModelSerializer):
@@ -31,12 +31,6 @@ class ReceptionistNameSerializer(serializers.ModelSerializer):
     class Meta:
         model = Receptionist
         fields = ['id', 'username']
-
-
-class DepartmentNameSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Department
-        fields = ['id', 'department_name']
 
 
 class JobTitleSerializer(serializers.ModelSerializer):
@@ -57,10 +51,17 @@ class DoctorSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
+class DoctorCreateEditSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Doctor
+        fields = ['username', 'password', 'profile_image', 'department', 'job_title',
+                  'phone', 'room', 'email', 'bonus']
+
+
 class DoctorListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Doctor
-        fields = ['id', 'username', 'department', 'phone']
+        fields = ['id', 'username', 'room', 'department', 'phone']
 
 
 class DoctorNameSerializer(serializers.ModelSerializer):
@@ -72,7 +73,7 @@ class DoctorNameSerializer(serializers.ModelSerializer):
 class ServiceTypeSerializer(serializers.ModelSerializer):
     class Meta:
         model = ServiceType
-        fields = '__all__'
+        fields = ['id', 'type', 'price']
 
 
 class ServiceTypeOnlySerializer(serializers.ModelSerializer):
@@ -101,6 +102,12 @@ class PatientCreateSerializer(serializers.ModelSerializer):
         fields = ['name', 'phone', 'service_type', 'birthday', 'department', 'registrar',
                   'appointment_date', 'gender', 'doctor', 'payment_type', 'patient_status',
                   'with_discount']
+
+
+class DepartmentNameSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Department
+        fields = ['id', 'department_name']
 
 
 class PatientHistoryAppointmentSerializer(serializers.ModelSerializer):
@@ -148,6 +155,7 @@ class PatientListSerializer(serializers.ModelSerializer):
     payment_type_display = serializers.CharField(source='get_payment_type_display', read_only=True)
     doctor = DoctorNameSerializer()
     price = serializers.SerializerMethodField()
+    appointment_date = serializers.DateTimeField(format('%d-%m-%Y %H:%M'))
 
     class Meta:
         model = Patient
@@ -159,3 +167,40 @@ class PatientListSerializer(serializers.ModelSerializer):
             return obj.with_discount
         return obj.service_type.price
 
+
+class DepartmentPatientSerializer(serializers.ModelSerializer):
+    patients = PatientListSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Department
+        fields = ['id', 'department_name', 'patients']
+
+
+class DepartmentServicesSerializer(serializers.ModelSerializer):
+    department_services = ServiceTypeSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Department
+        fields = ['id', 'department_name', 'department_services']
+
+
+class ReportPatientSerializer(serializers.ModelSerializer):
+    appointment_date = serializers.DateTimeField(format='%d-%m-%Y %H:%M')
+    price = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Patient
+        fields = ['id', 'name', 'appointment_date', 'price']
+
+    def get_price(self, obj):
+        if obj.with_discount:
+            return obj.with_discount
+        return obj.service_type.price
+
+
+class ReportDoctorSerializer(serializers.ModelSerializer):
+    doctor_patients = ReportPatientSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Doctor
+        fields = ['id', 'username', 'doctor_patients']

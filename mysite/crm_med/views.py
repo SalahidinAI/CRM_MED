@@ -71,12 +71,22 @@ class DoctorListAPIView(generics.ListAPIView):
     serializer_class = DoctorListSerializer
 
 
+class DoctorEditAPIView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Doctor.objects.all()
+    serializer_class = DoctorCreateEditSerializer
+
+
+class DoctorCreateAPIView(generics.CreateAPIView):
+    queryset = Doctor.objects.all()
+    serializer_class = DoctorCreateEditSerializer
+
+
 class UserProfileAPIView(generics.ListAPIView):
     queryset = UserProfile.objects.all()
     serializer_class = UserProfileSerializer
 
 
-class AdminAPIView(generics.ListAPIView):
+class AdminCreateAPIView(generics.CreateAPIView):
     queryset = Admin.objects.all()
     serializer_class = AdminSerializer
 
@@ -86,9 +96,14 @@ class ReceptionistAPIView(generics.ListAPIView):
     serializer_class = ReceptionistSerializer
 
 
-class DepartmentAPIView(generics.ListAPIView):
+class DepartmentServiceAPIView(generics.ListAPIView):
     queryset = Department.objects.all()
-    serializer_class = DepartmentNameSerializer
+    serializer_class = DepartmentServicesSerializer
+
+
+class DepartmentPatientAPIView(generics.RetrieveAPIView):
+    queryset = Department.objects.all()
+    serializer_class = DepartmentPatientSerializer
 
 
 class JobTitleAPIView(generics.ListAPIView):
@@ -96,11 +111,6 @@ class JobTitleAPIView(generics.ListAPIView):
     serializer_class = JobTitleSerializer
 
 
-class RoomAPIView(generics.ListAPIView):
-    queryset = Room.objects.all()
-    serializer_class = RoomSerializer
-
-
-class ServiceTypeAPIView(generics.ListAPIView):
-    queryset = ServiceType.objects.all()
-    serializer_class = ServiceTypeSerializer
+class ReportDoctorAPIView(generics.RetrieveAPIView):
+    queryset = Doctor.objects.all()
+    serializer_class = ReportDoctorSerializer

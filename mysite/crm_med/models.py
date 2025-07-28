@@ -31,8 +31,8 @@ PATIENT_STATUS_CHOICES = (
 class UserProfile(AbstractUser):
     profile_image = models.ImageField(upload_to='user_images/')
     email = models.EmailField(unique=True)
-    phone = PhoneNumberField(null=True, blank=True)
-    role = models.CharField(max_length=32, choices=ROLE_CHOICES)
+    phone = PhoneNumberField(null=True, blank=True, unique=True)
+    # role = models.CharField(max_length=32, choices=ROLE_CHOICES)
 
     def __str__(self):
         return f'{self.username}'
@@ -42,6 +42,7 @@ class UserProfile(AbstractUser):
 
 
 class Admin(UserProfile):
+    role = models.CharField(max_length=16, choices=ROLE_CHOICES, default='admin')
 
     def __str__(self):
         return f'{self.username}'
@@ -51,6 +52,7 @@ class Admin(UserProfile):
 
 
 class Receptionist(UserProfile):
+    role = models.CharField(max_length=16, choices=ROLE_CHOICES, default='receptionist')
 
     def __str__(self):
         return f'{self.username}'
@@ -83,8 +85,9 @@ class Room(models.Model):
 class Doctor(UserProfile):
     department = models.ForeignKey(Department, on_delete=models.CASCADE)
     job_title = models.ForeignKey(JobTitle, on_delete=models.CASCADE)
-    room = models.ForeignKey(Room, on_delete=models.CASCADE)
+    room = models.ForeignKey(Room, on_delete=models.CASCADE, null=True, blank=True)
     bonus = models.PositiveSmallIntegerField()
+    role = models.CharField(max_length=16, choices=ROLE_CHOICES, default='doctor')
 
     def __str__(self):
         return f'{self.username} - {self.room}'
@@ -94,7 +97,7 @@ class Doctor(UserProfile):
 
 
 class ServiceType(models.Model):
-    department = models.ForeignKey(Department, on_delete=models.CASCADE)
+    department = models.ForeignKey(Department, on_delete=models.CASCADE, related_name='department_services')
     type = models.CharField(max_length=32)
     price = models.PositiveSmallIntegerField()
 
@@ -110,11 +113,11 @@ class Patient(models.Model):
     phone = PhoneNumberField()
     service_type = models.ForeignKey(ServiceType, on_delete=models.CASCADE)
     birthday = models.DateField()
-    department = models.ForeignKey(Department, on_delete=models.CASCADE)
+    department = models.ForeignKey(Department, on_delete=models.CASCADE, related_name='patients')
     registrar = models.ForeignKey(Receptionist, on_delete=models.CASCADE)
     appointment_date = models.DateTimeField()
     gender = models.CharField(max_length=16, choices=GENDER_CHOICES)
-    doctor = models.ForeignKey(Doctor, on_delete=models.CASCADE)
+    doctor = models.ForeignKey(Doctor, on_delete=models.CASCADE, related_name='doctor_patients')
     payment_type = models.CharField(max_length=32, choices=PAYMENT_TYPE_CHOICES)
     patient_status = models.CharField(max_length=32, choices=PATIENT_STATUS_CHOICES)
     # with_discount (сумма оплаты) (если это поле пуста то будем считать сумму в service_type
