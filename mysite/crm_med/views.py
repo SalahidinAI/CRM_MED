@@ -3,6 +3,7 @@ from .models import *
 from .serializers import *
 from rest_framework.response import Response
 from django.db.models import Q
+from rest_framework.views import APIView
 
 
 class PatientListAPIView(generics.ListAPIView):
@@ -114,3 +115,14 @@ class JobTitleAPIView(generics.ListAPIView):
 class ReportDoctorAPIView(generics.RetrieveAPIView):
     queryset = Doctor.objects.all()
     serializer_class = ReportDoctorSerializer
+
+
+class ReportExactAPIView(generics.RetrieveAPIView):
+    queryset = Doctor.objects.all()
+    serializer_class = ReportExactSerializer
+
+
+class ReportSummaryAPIView(APIView):
+    def get(self, request):
+        total = Doctor.get_all_payment()
+        return Response({"general_payment": total})

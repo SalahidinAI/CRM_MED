@@ -2,6 +2,7 @@ from django.contrib.auth.models import AbstractUser
 from django.db import models
 from phonenumber_field.modelfields import PhoneNumberField
 from django.utils.translation import gettext_lazy as _
+from django.core.validators import MinValueValidator, MaxValueValidator
 
 
 ROLE_CHOICES = (
@@ -32,7 +33,6 @@ class UserProfile(AbstractUser):
     profile_image = models.ImageField(upload_to='user_images/')
     email = models.EmailField(unique=True)
     phone = PhoneNumberField(null=True, blank=True, unique=True)
-    # role = models.CharField(max_length=32, choices=ROLE_CHOICES)
 
     def __str__(self):
         return f'{self.username}'
@@ -86,7 +86,9 @@ class Doctor(UserProfile):
     department = models.ForeignKey(Department, on_delete=models.CASCADE)
     job_title = models.ForeignKey(JobTitle, on_delete=models.CASCADE)
     room = models.ForeignKey(Room, on_delete=models.CASCADE, null=True, blank=True)
-    bonus = models.PositiveSmallIntegerField()
+    bonus = models.PositiveSmallIntegerField(default=5, validators=[
+        MinValueValidator(5), MaxValueValidator(60)
+    ])
     role = models.CharField(max_length=16, choices=ROLE_CHOICES, default='doctor')
 
     def __str__(self):
@@ -94,6 +96,66 @@ class Doctor(UserProfile):
 
     class Meta:
         verbose_name = 'Doctor'
+
+    def get_cash_and_card_payment(self):
+        patients = self.doctor_patients.select_related('service_type').all()
+        cash = 0
+        card = 0
+        for i in patients:
+            if i.payment_type == 'cash':
+                cash += i.with_discount if i.with_discount else i.service_type.price
+            else:
+                card += i.with_discount if i.with_discount else i.service_type.price
+        return {'cash': cash, 'card': card}
+
+    @classmethod
+    def get_all_payment(cls):
+        doctor_cash = 0
+        doctor_card = 0
+
+        clinic_cash = 0
+        clinic_card = 0
+
+        total_cash = 0
+        total_card = 0
+
+        total_clinic = 0
+        total_doctor = 0
+        for doctor in cls.objects.all():
+            cash = doctor.get_cash_and_card_payment()['cash']
+            card = doctor.get_cash_and_card_payment()['card']
+
+            # оплачено докторам: нал / без нал
+            doctor_cash += cash / 100 % doctor.bonus if doctor.bonus else 1
+            doctor_card += card / 100 % doctor.bonus if doctor.bonus else 1
+
+            # оплачено клинике: нал / без нал
+            clinic_cash += cash - doctor_cash
+            clinic_card += card - doctor_card
+
+            # оплачено в целом: нал / без нал
+            total_cash += cash
+            total_card += card
+
+            # оплачено клинике в целом: нал + без нал
+            total_clinic += clinic_cash + clinic_card
+
+            # оплачено докторам в целом: нал + без нал
+            total_doctor += doctor_cash + doctor_card
+
+        return {
+            'doctor_cash': int(doctor_cash),
+            'doctor_card': int(doctor_card),
+
+            'clinic_cash': int(clinic_cash),
+            'clinic_card': int(clinic_card),
+
+            'total_cash': int(total_cash),
+            'total_card': int(total_card),
+
+            'total_clinic': int(total_clinic),
+            'total_doctor': int(total_doctor),
+        }
 
 
 class ServiceType(models.Model):
@@ -120,7 +182,6 @@ class Patient(models.Model):
     doctor = models.ForeignKey(Doctor, on_delete=models.CASCADE, related_name='doctor_patients')
     payment_type = models.CharField(max_length=32, choices=PAYMENT_TYPE_CHOICES)
     patient_status = models.CharField(max_length=32, choices=PATIENT_STATUS_CHOICES)
-    # with_discount (сумма оплаты) (если это поле пуста то будем считать сумму в service_type
     with_discount = models.PositiveSmallIntegerField(null=True, blank=True)
     created_date = models.DateField(auto_now_add=True)
     primary_patient = models.BooleanField(null=True, blank=True)

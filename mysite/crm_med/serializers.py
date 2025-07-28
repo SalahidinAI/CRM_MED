@@ -198,9 +198,35 @@ class ReportPatientSerializer(serializers.ModelSerializer):
         return obj.service_type.price
 
 
+class ReportExactPatientSerializer(serializers.ModelSerializer):
+    appointment_date = serializers.DateTimeField(format='%d-%m-%Y %H:%M')
+    price = serializers.SerializerMethodField()
+    service_type = ServiceTypeOnlySerializer()
+    payment_type_display = serializers.CharField(source='get_payment_type_display', read_only=True)
+
+    class Meta:
+        model = Patient
+        fields = ['id', 'appointment_date', 'name', 'service_type', 'payment_type_display',
+                  'price']
+
+    def get_price(self, obj):
+        if obj.with_discount:
+            return obj.with_discount
+        return obj.service_type.price
+
+
 class ReportDoctorSerializer(serializers.ModelSerializer):
     doctor_patients = ReportPatientSerializer(many=True, read_only=True)
 
     class Meta:
         model = Doctor
         fields = ['id', 'username', 'doctor_patients']
+
+
+class ReportExactSerializer(serializers.ModelSerializer):
+    doctor_patients = ReportExactPatientSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Doctor
+        fields = ['id', 'username', 'bonus', 'doctor_patients']
+
