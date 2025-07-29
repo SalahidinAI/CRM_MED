@@ -31,6 +31,7 @@ urlpatterns = [
     path('report/summary/', ReportSummaryAPIView.as_view(), name='report_summary'),
 
     # analysis
+    path('analysis/', AnalysisAPIView.as_view(), name='analysis'),
 
 
 ]

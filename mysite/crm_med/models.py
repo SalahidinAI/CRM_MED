@@ -97,16 +97,94 @@ class Doctor(UserProfile):
     class Meta:
         verbose_name = 'Doctor'
 
+    def get_analysis(self):
+        patients = self.doctor_patients.select_related('service_type').all()
+        if not patients:
+            return {
+                'rise': 50,
+                'fall': 50,
+                'patient_count': 0,
+                'patient_primary_count': 0,
+            }
+
+        previous = patients[0].with_discount or patients[0].service_type.price
+        up = 0
+        down = 0
+        patient_count = 1
+        patient_primary_count = 0
+
+        for patient in patients[1:]:
+            patient_count += 1
+            if patient.primary_patient:
+                patient_primary_count += 1
+
+            price = patient.with_discount or patient.service_type.price
+            if previous < price:
+                up += price - previous
+            else: down += previous - price
+            previous = price
+
+        top = up * 2
+        fall = down / top * 100
+        rise = 100 - fall
+        return {
+            'rise': rise,
+            'fall': fall,
+            'patient_count': patient_count,
+            'patient_primary_count': patient_primary_count,
+        }
+
+    @classmethod
+    def get_analysis_data(cls):
+        doctors = cls.objects.all()
+        if not doctors.exists():
+            return {'rise': 0, 'fall': 0}
+
+        rise_list = []
+        fall_list = []
+
+        doctor_count = 0
+        patient_count_total = 0
+        patient_primary_count_total = 0
+        for doctor in doctors:
+            doctor_count += 1
+            analysis = doctor.get_analysis()
+            rise_list.append(analysis['rise'])
+            fall_list.append(analysis['fall'])
+            patient_count_total += analysis['patient_count']
+            patient_primary_count_total += analysis['patient_primary_count']
+
+        doctor_count = len(rise_list)
+        rise = sum(rise_list) / doctor_count
+        fall = sum(fall_list) / doctor_count
+        patient_primary_percent = round(patient_primary_count_total / patient_count_total * 100)
+        patient_repeatedly_percent = 100 - patient_primary_percent
+
+        return {
+            'rise': round(rise),
+            'fall': -round(fall),
+            'doctor_count': doctor_count,
+            'patient_count_total': patient_count_total,
+            'patient_primary_percent': patient_primary_percent,
+            'patient_repeatedly_percent': patient_repeatedly_percent,
+        }
+
     def get_cash_and_card_payment(self):
         patients = self.doctor_patients.select_related('service_type').all()
         cash = 0
         card = 0
         for i in patients:
+            discount = i.with_discount
+            service_price = i.service_type.price
+
             if i.payment_type == 'cash':
-                cash += i.with_discount if i.with_discount else i.service_type.price
+                cash += discount if discount else service_price
             else:
-                card += i.with_discount if i.with_discount else i.service_type.price
-        return {'cash': cash, 'card': card}
+                card += discount if discount else service_price
+        return {
+            'cash': cash,
+            'card': card,
+        }
 
     @classmethod
     def get_all_payment(cls):

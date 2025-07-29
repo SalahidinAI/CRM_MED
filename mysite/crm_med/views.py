@@ -122,6 +122,14 @@ class ReportExactAPIView(generics.RetrieveAPIView):
     serializer_class = ReportExactSerializer
 
 
+class AnalysisAPIView(APIView):
+    def get(self, request):
+        doctor_count = Doctor.get_analysis_data()
+        return Response({
+            'doctor_count': doctor_count,
+        })
+
+
 class ReportSummaryAPIView(APIView):
     def get(self, request):
         total = Doctor.get_all_payment()
