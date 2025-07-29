@@ -99,13 +99,6 @@ class Doctor(UserProfile):
 
     def get_analysis(self):
         patients = self.doctor_patients.select_related('service_type').all()
-        if not patients:
-            return {
-                'rise': 50,
-                'fall': 50,
-                'patient_count': 0,
-                'patient_primary_count': 0,
-            }
 
         previous = patients[0].with_discount or patients[0].service_type.price
         up = 0
@@ -124,6 +117,14 @@ class Doctor(UserProfile):
             else: down += previous - price
             previous = price
 
+        if not up:
+            return {
+                'rise': 50,
+                'fall': 50,
+                'patient_count': 0,
+                'patient_primary_count': 0,
+            }
+
         top = up * 2
         fall = down / top * 100
         rise = 100 - fall
@@ -137,9 +138,6 @@ class Doctor(UserProfile):
     @classmethod
     def get_analysis_data(cls):
         doctors = cls.objects.all()
-        if not doctors.exists():
-            return {'rise': 0, 'fall': 0}
-
         rise_list = []
         fall_list = []
 
