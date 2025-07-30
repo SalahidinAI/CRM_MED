@@ -3,6 +3,7 @@ from django.db import models
 from phonenumber_field.modelfields import PhoneNumberField
 from django.utils.translation import gettext_lazy as _
 from django.core.validators import MinValueValidator, MaxValueValidator
+from django.utils import timezone
 
 
 ROLE_CHOICES = (
@@ -97,8 +98,25 @@ class Doctor(UserProfile):
     class Meta:
         verbose_name = 'Doctor'
 
-    def get_analysis(self):
-        patients = self.doctor_patients.select_related('service_type').all()
+    # from gpt
+    def get_analysis(self, start_date=None, end_date=None):
+        patients = self.doctor_patients.select_related('service_type')
+
+        if start_date and end_date:
+            patients = patients.filter(
+                appointment_date__gte=start_date,
+                appointment_date__lte=end_date
+            )
+
+        patients = patients.order_by('appointment_date')
+
+        if not patients.exists():
+            return {
+                'rise': 0,
+                'fall': 0,
+                'patient_count': 0,
+                'patient_primary_count': 0,
+            }
 
         previous = patients[0].with_discount or patients[0].service_type.price
         up = 0
@@ -114,7 +132,8 @@ class Doctor(UserProfile):
             price = patient.with_discount or patient.service_type.price
             if previous < price:
                 up += price - previous
-            else: down += previous - price
+            else:
+                down += previous - price
             previous = price
 
         if not up:
@@ -136,26 +155,29 @@ class Doctor(UserProfile):
         }
 
     @classmethod
-    def get_analysis_data(cls):
+    def get_analysis_data(cls, start_date=None, end_date=None):
         doctors = cls.objects.all()
         rise_list = []
         fall_list = []
 
-        doctor_count = 0
         patient_count_total = 0
         patient_primary_count_total = 0
+
         for doctor in doctors:
-            doctor_count += 1
-            analysis = doctor.get_analysis()
+            analysis = doctor.get_analysis(start_date=start_date, end_date=end_date)
             rise_list.append(analysis['rise'])
             fall_list.append(analysis['fall'])
             patient_count_total += analysis['patient_count']
             patient_primary_count_total += analysis['patient_primary_count']
 
-        doctor_count = len(rise_list)
+        doctor_count = len(rise_list) if rise_list else 1
         rise = sum(rise_list) / doctor_count
         fall = sum(fall_list) / doctor_count
-        patient_primary_percent = round(patient_primary_count_total / patient_count_total * 100)
+
+        patient_primary_percent = (
+            round(patient_primary_count_total / patient_count_total * 100)
+            if patient_count_total else 0
+        )
         patient_repeatedly_percent = 100 - patient_primary_percent
 
         return {
@@ -166,6 +188,77 @@ class Doctor(UserProfile):
             'patient_primary_percent': patient_primary_percent,
             'patient_repeatedly_percent': patient_repeatedly_percent,
         }
+
+    # my code
+    # def get_analysis(self):
+    #     patients = self.doctor_patients.select_related('service_type').all()
+    #
+    #     previous = patients[0].with_discount or patients[0].service_type.price
+    #     up = 0
+    #     down = 0
+    #     patient_count = 1
+    #     patient_primary_count = 0
+    #
+    #     for patient in patients[1:]:
+    #         patient_count += 1
+    #         if patient.primary_patient:
+    #             patient_primary_count += 1
+    #
+    #         price = patient.with_discount or patient.service_type.price
+    #         if previous < price:
+    #             up += price - previous
+    #         else: down += previous - price
+    #         previous = price
+    #
+    #     if not up:
+    #         return {
+    #             'rise': 50,
+    #             'fall': 50,
+    #             'patient_count': 0,
+    #             'patient_primary_count': 0,
+    #         }
+    #
+    #     top = up * 2
+    #     fall = down / top * 100
+    #     rise = 100 - fall
+    #     return {
+    #         'rise': rise,
+    #         'fall': fall,
+    #         'patient_count': patient_count,
+    #         'patient_primary_count': patient_primary_count,
+    #     }
+    #
+    # @classmethod
+    # def get_analysis_data(cls):
+    #     doctors = cls.objects.all()
+    #     rise_list = []
+    #     fall_list = []
+    #
+    #     doctor_count = 0
+    #     patient_count_total = 0
+    #     patient_primary_count_total = 0
+    #     for doctor in doctors:
+    #         doctor_count += 1
+    #         analysis = doctor.get_analysis()
+    #         rise_list.append(analysis['rise'])
+    #         fall_list.append(analysis['fall'])
+    #         patient_count_total += analysis['patient_count']
+    #         patient_primary_count_total += analysis['patient_primary_count']
+    #
+    #     doctor_count = len(rise_list)
+    #     rise = sum(rise_list) / doctor_count
+    #     fall = sum(fall_list) / doctor_count
+    #     patient_primary_percent = round(patient_primary_count_total / patient_count_total * 100)
+    #     patient_repeatedly_percent = 100 - patient_primary_percent
+    #
+    #     return {
+    #         'rise': round(rise),
+    #         'fall': -round(fall),
+    #         'doctor_count': doctor_count,
+    #         'patient_count_total': patient_count_total,
+    #         'patient_primary_percent': patient_primary_percent,
+    #         'patient_repeatedly_percent': patient_repeatedly_percent,
+    #     }
 
     def get_cash_and_card_payment(self):
         patients = self.doctor_patients.select_related('service_type').all()

@@ -32,6 +32,7 @@ urlpatterns = [
 
     # analysis
     path('analysis/', AnalysisAPIView.as_view(), name='analysis'),
+    path('analysis_regression/', AnalysisRegressionAPIView.as_view(), name='analysis_regression'),
 
 
 ]
