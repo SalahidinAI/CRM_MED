@@ -27,11 +27,9 @@ urlpatterns = [
 
     # report
     path('report/exact/', ReportExactAPIView.as_view(), name='report_exact'),
-    # path('report/exact/<int:pk>/', ReportExactAPIView.as_view(), name='report_exact'),
-    path('report/doctor/<int:pk>/', ReportDoctorAPIView.as_view(), name='report_doctor'),
+    path('report/doctor/', ReportDoctorAPIView.as_view(), name='report_doctor'),
     path('report/summary/', ReportSummaryAPIView.as_view(), name='report_summary'),
 
     # ✅ analysis
     path('analysis_regression/', AnalysisAPIView.as_view(), name='analysis_regression'),
-
 ]

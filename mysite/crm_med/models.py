@@ -93,7 +93,7 @@ class Doctor(UserProfile):
     role = models.CharField(max_length=16, choices=ROLE_CHOICES, default='doctor')
 
     def __str__(self):
-        return f'{self.username} - {self.room}'
+        return f'{self.id} {self.username} - {self.room}'
 
     class Meta:
         verbose_name = 'Doctor'

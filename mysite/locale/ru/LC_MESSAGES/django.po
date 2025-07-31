@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-07-25 16:10+0600\n"
+"POT-Creation-Date: 2025-07-31 22:28+0600\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -20,46 +20,74 @@ msgstr ""
 "n%10<=4 && (n%100<12 || n%100>14) ? 1 : n%10==0 || (n%10>=5 && n%10<=9) || "
 "(n%100>=11 && n%100<=14)? 2 : 3);\n"
 
-#: crm_med/models.py:24
+#: crm_med/models.py:10
 msgid "Admin"
 msgstr "Администратор"
 
-#: crm_med/models.py:25
+#: crm_med/models.py:11
 msgid "Receptionist"
 msgstr "Регистратор"
 
-#: crm_med/models.py:26
+#: crm_med/models.py:12 crm_med/views.py:379
 msgid "Doctor"
 msgstr "Врач"
 
-#: crm_med/models.py:30
+#: crm_med/models.py:16
 msgid "Male"
 msgstr "Мужчина"
 
-#: crm_med/models.py:31
+#: crm_med/models.py:17
 msgid "Female"
 msgstr "Женщина"
 
-#: crm_med/models.py:35
+#: crm_med/models.py:21
 msgid "Cash"
 msgstr "Наличные"
 
-#: crm_med/models.py:36
+#: crm_med/models.py:22
 msgid "Card"
 msgstr "Карта"
 
-#: crm_med/models.py:40
+#: crm_med/models.py:26
 msgid "Pre-registration"
 msgstr "Предварительная запись"
 
-#: crm_med/models.py:41
+#: crm_med/models.py:27
 msgid "Waiting"
 msgstr "Ожидает"
 
-#: crm_med/models.py:42
+#: crm_med/models.py:28
 msgid "Had an appointment"
 msgstr "Был на приёме"
 
-#: crm_med/models.py:43
+#: crm_med/models.py:29
 msgid "Canceled"
 msgstr "Отменено"
+
+#: crm_med/views.py:372
+msgid "ID"
+msgstr "ID"
+
+#: crm_med/views.py:373
+msgid "Date"
+msgstr "Дата"
+
+#: crm_med/views.py:374
+msgid "Name"
+msgstr "Имя"
+
+#: crm_med/views.py:375
+msgid "Service"
+msgstr "Услуга"
+
+#: crm_med/views.py:376
+msgid "Payment Type"
+msgstr "Тип оплаты"
+
+#: crm_med/views.py:377
+msgid "Price"
+msgstr "Цена"
+
+#: crm_med/views.py:378
+msgid "With discount"
+msgstr "Цена со скидкой"
