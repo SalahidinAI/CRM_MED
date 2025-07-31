@@ -1,5 +1,5 @@
 from datetime import timedelta
-
+from django.utils.dateparse import parse_date
 from rest_framework import generics, views, status
 from .models import *
 from .serializers import *
@@ -121,248 +121,154 @@ class ReportDoctorAPIView(generics.RetrieveAPIView):
     serializer_class = ReportDoctorSerializer
 
 
-class ReportExactAPIView(generics.RetrieveAPIView):
-    queryset = Doctor.objects.all()
+# class ReportExactAPIView(generics.RetrieveAPIView):
+#     queryset = Doctor.objects.all()
+#     serializer_class = ReportExactSerializer
+#
+#     def get_serializer_context(self):
+#         context = super().get_serializer_context()
+#         date_str = self.request.query_params.get("date")
+#
+#         if date_str:
+#             selected_date = parse_date(date_str)
+#             # Фильтруем пациентов для выбранного доктора
+#             doctor = self.get_object()
+#             patients_qs = doctor.doctor_patients.filter(appointment_date__date=selected_date)
+#             context['patients_qs'] = patients_qs
+#         return context
+
+
+class ReportExactAPIView(generics.ListAPIView):
     serializer_class = ReportExactSerializer
 
+    def get_queryset(self):
+        # Базовый queryset — все доктора
+        queryset = Doctor.objects.all()
 
-# class AnalysisAPIView(APIView):
-#     def get(self, request):
-#         period = request.query_params.get("period", "weekly")
-#
-#         now = timezone.now().date()
-#         trunc_map = {
-#             'daily': TruncDay,
-#             'weekly': TruncWeek,
-#             'monthly': TruncMonth,
-#             'yearly': TruncYear
-#         }
-#         delta_map = {
-#             'daily': 1,
-#             'weekly': 7,
-#             'monthly': 30,
-#             'yearly': 365
-#         }
-#
-#         if period not in trunc_map:
-#             return Response({"error": "Invalid period"}, status=400)
-#
-#         trunc_func = trunc_map[period]
-#         start_date = now - timedelta(days=delta_map[period])
-#
-#         # Основной график
-#         chart_data = (
-#             Patient.objects
-#             .filter(appointment_date__gte=start_date)
-#             .annotate(period=trunc_func("appointment_date"))
-#             .values("period")
-#             .annotate(
-#                 total=Count("id"),
-#                 canceled=Count("id", filter=Q(patient_status='canceled'))
-#             )
-#             .order_by("period")
-#         )
-#         analysis = Doctor.get_analysis_data()
-#         return Response({
-#             'analysis': analysis,
-#             'chart': chart_data,
-#         })
+        # Фильтр по конкретному врачу (если передан)
+        doctor_id = self.request.query_params.get("doctor")
+        if doctor_id:
+            queryset = queryset.filter(id=doctor_id)
 
+        # Фильтр по отделению
+        department_id = self.request.query_params.get("department")
+        if department_id:
+            queryset = queryset.filter(department_id=department_id)
 
-class AnalysisAPIView(APIView):
-    def get(self, request):
-        period = request.query_params.get("period", "weekly")
+        return queryset
 
-        now = timezone.now().date()
-        trunc_map = {
-            'daily': TruncDay,
-            'weekly': TruncWeek,
-            'monthly': TruncMonth,
-            'yearly': TruncYear
-        }
-        delta_map = {
-            'daily': 1,
-            'weekly': 7,
-            'monthly': 30,
-            'yearly': 365
-        }
-
-        if period not in trunc_map:
-            return Response({"error": "Invalid period"}, status=400)
-
-        trunc_func = trunc_map[period]
-        start_date = now - timedelta(days=delta_map[period])
-
-        # Основной график
-        chart_data = (
-            Patient.objects
-            .filter(appointment_date__gte=start_date)
-            .annotate(period=trunc_func("appointment_date"))
-            .values("period")
-            .annotate(
-                total=Count("id"),
-                canceled=Count("id", filter=Q(patient_status='canceled'))
-            )
-            .order_by("period")
-        )
-        analysis = Doctor.get_analysis_data()
-        return Response({
-            'analysis': analysis,
-            'chart': chart_data,
-        })
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        date_str = self.request.query_params.get("date")
+        if date_str:
+            selected_date = parse_date(date_str)
+            context["selected_date"] = selected_date
+        return context
 
 
 class ReportSummaryAPIView(APIView):
+    permission_classes = [] # IsAdministrator, IsReceptionist
+
     def get(self, request):
         total = Doctor.get_all_payment()
         return Response({"general_payment": total})
 
 
-class AnalysisRegressionAPIView(APIView):
+class AnalysisAPIView(APIView):
+    permission_classes = [] # IsAdministrator
+
     def get(self, request):
         period = request.query_params.get("period", "weekly")
 
-        now = timezone.now().date()
-        trunc_map = {
-            'daily': TruncDay,
-            'weekly': TruncWeek,
-            'monthly': TruncMonth,
-            'yearly': TruncYear
-        }
-        delta_map = {
-            'daily': 1,
-            'weekly': 7,
-            'monthly': 30,
-            'yearly': 365
-        }
-
-        if period not in trunc_map:
+        now = timezone.now()
+        # Настраиваем интервалы
+        if period == "daily":
+            interval = timedelta(hours=2)  # 12 интервалов
+            start_date = now - timedelta(days=1)
+        elif period == "weekly":
+            interval = timedelta(days=1)  # 7 интервалов
+            start_date = now - timedelta(days=7)
+        elif period == "monthly":
+            interval = timedelta(days=2)  # 15 интервалов
+            start_date = now - timedelta(days=30)
+        elif period == "yearly":
+            interval = None  # Для года будем делить на месяцы
+            start_date = now - timedelta(days=365)
+        else:
             return Response({"error": "Invalid period"}, status=400)
 
-        trunc_func = trunc_map[period]
-        start_date = now - timedelta(days=delta_map[period])
+        patients_qs = Patient.objects.filter(appointment_date__gte=start_date, appointment_date__lte=now)
 
-        # Основной график
-        chart_data = (
-            Patient.objects
-            .filter(appointment_date__gte=start_date)
-            .annotate(period=trunc_func("appointment_date"))
-            .values("period")
-            .annotate(
-                total=Count("id"),
-                canceled=Count("id", filter=Q(patient_status='canceled'))
-            )
-            .order_by("period")
-        )
-
-        # Общие метрики
+        # кол-во докторов и пациентов.
         total_doctors = Doctor.objects.count()
+        total_patients = patients_qs.count()
 
-        total_patients = Patient.objects.filter(appointment_date__gte=start_date).count()
-        unique_patients_set = set()
-        repeated = 0
-        new = 0
+        # новые и повторные пациенты.
+        primary = 0
+        for p in patients_qs:
+            if p.primary_patient:
+                primary += 1
 
-        for p in Patient.objects.filter(appointment_date__gte=start_date).order_by('appointment_date'):
-            key = (p.name.strip().lower(), str(p.phone))
-            if key in unique_patients_set:
-                repeated += 1
-            else:
-                unique_patients_set.add(key)
-                new += 1
+        primary_percent = 0 if not total_patients else primary / total_patients * 100
+        repeated_percent = 0 if not total_patients else 100 - primary_percent
 
-        new_percent = round((new / max(total_patients, 1)) * 100)
-        repeated_percent = 100 - new_percent
+        # рост и падение.
+        fall = patients_qs.filter(
+            patient_status='canceled',
+        ).count()
+        fall_percent = 0 if not total_patients else fall / total_patients * 100
+        rise_percent = 0 if not total_patients else 100 - fall_percent
+        print(f'total: {total_patients}, fall: {fall}, f_per: {fall_percent}, r_per: {rise_percent}')
 
-        # Рост и падение (сравниваем с предыдущим периодом)
-        prev_start = start_date - timedelta(days=delta_map[period])
-        prev_count = Patient.objects.filter(appointment_date__gte=prev_start, appointment_date__lt=start_date).count()
-        current_count = total_patients
+        # Строим интервалы для chart
+        chart = []
+        if period == "yearly":
+            # 12 интервалов по месяцам
+            for m in range(1, 13):
+                start_month = start_date.replace(month=m, day=1)
+                if m == 12:
+                    end_month = start_month.replace(year=start_month.year + 1, month=1, day=1)
+                else:
+                    end_month = start_month.replace(month=m + 1, day=1)
+                bucket_qs = patients_qs.filter(
+                    appointment_date__gte=start_month,
+                    appointment_date__lt=end_month
+                )
+                had_an_appointment = bucket_qs.exclude(patient_status='canceled').count()
+                canceled = bucket_qs.filter(patient_status='canceled').count()
+                chart.append({
+                    "appointment_date": start_month,
+                    "had_an_appointment": had_an_appointment,
+                    "canceled": canceled,
+                })
+        else:
+            current_start = start_date
+            while current_start < now:
+                current_end = current_start + interval
+                bucket_qs = patients_qs.filter(
+                    appointment_date__gte=current_start,
+                    appointment_date__lt=current_end
+                )
+                had_an_appointment = bucket_qs.exclude(patient_status='canceled').count()
+                canceled = bucket_qs.filter(patient_status='canceled').count()
+                chart.append({
+                    "appointment_date": current_start,
+                    "had_an_appointment": had_an_appointment,
+                    "canceled": canceled,
+                })
+                current_start = current_end
 
-        growth = current_count - prev_count
-        trend = "up" if growth > 0 else ("down" if growth < 0 else "same")
+        for row in chart:
+            row["appointment_date"] = row["appointment_date"].strftime("%d-%m-%Y %H:%M")
 
         return Response({
             "total_doctors": total_doctors,
-            "total_clients": len(unique_patients_set),
-            "new_percent": new_percent,
-            "repeated_percent": repeated_percent,
-            "growth": growth,
-            "trend": trend,
-            "chart": chart_data,
+            "total_patients": total_patients,
+            "new_percent": round(primary_percent),
+            "repeated_percent": round(repeated_percent),
+            "rise": round(rise_percent),
+            "fall": round(fall_percent),
+            "chart": chart,
         })
 
 
-# class AnalysisRegressionAPIView(APIView):
-#     def get(self, request):
-#         period = request.query_params.get("period", "weekly")
-#
-#         now = timezone.now().date()
-#         trunc_map = {
-#             'daily': TruncDay,
-#             'weekly': TruncWeek,
-#             'monthly': TruncMonth,
-#             'yearly': TruncYear
-#         }
-#         delta_map = {
-#             'daily': 1,
-#             'weekly': 7,
-#             'monthly': 30,
-#             'yearly': 365
-#         }
-#
-#         if period not in trunc_map:
-#             return Response({"error": "Invalid period"}, status=400)
-#
-#         trunc_func = trunc_map[period]
-#         start_date = now - timedelta(days=delta_map[period])
-#
-#         # Основной график
-#         chart_data = (
-#             Patient.objects
-#             .filter(appointment_date__gte=start_date)
-#             .annotate(period=trunc_func("appointment_date"))
-#             .values("period")
-#             .annotate(
-#                 total=Count("id"),
-#                 canceled=Count("id", filter=Q(patient_status='canceled'))
-#             )
-#             .order_by("period")
-#         )
-#
-#         # Общие метрики
-#         total_doctors = Doctor.objects.count()
-#
-#         total_patients = Patient.objects.filter(appointment_date__gte=start_date).count()
-#         unique_patients_set = set()
-#         repeated = 0
-#         new = 0
-#
-#         for p in Patient.objects.filter(appointment_date__gte=start_date).order_by('appointment_date'):
-#             key = (p.name.strip().lower(), str(p.phone))
-#             if key in unique_patients_set:
-#                 repeated += 1
-#             else:
-#                 unique_patients_set.add(key)
-#                 new += 1
-#
-#         new_percent = round((new / max(total_patients, 1)) * 100)
-#         repeated_percent = 100 - new_percent
-#
-#         # Рост и падение (сравниваем с предыдущим периодом)
-#         prev_start = start_date - timedelta(days=delta_map[period])
-#         prev_count = Patient.objects.filter(appointment_date__gte=prev_start, appointment_date__lt=start_date).count()
-#         current_count = total_patients
-#
-#         growth = current_count - prev_count
-#         trend = "up" if growth > 0 else ("down" if growth < 0 else "same")
-#
-#         return Response({
-#             "total_doctors": total_doctors,
-#             "total_clients": len(unique_patients_set),
-#             "new_percent": new_percent,
-#             "repeated_percent": repeated_percent,
-#             "growth": growth,
-#             "trend": trend,
-#             "chart": chart_data,
-#         })

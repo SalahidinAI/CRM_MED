@@ -198,21 +198,21 @@ class ReportPatientSerializer(serializers.ModelSerializer):
         return obj.service_type.price
 
 
-class ReportExactPatientSerializer(serializers.ModelSerializer):
-    appointment_date = serializers.DateTimeField(format='%d-%m-%Y %H:%M')
-    price = serializers.SerializerMethodField()
-    service_type = ServiceTypeOnlySerializer()
-    payment_type_display = serializers.CharField(source='get_payment_type_display', read_only=True)
-
-    class Meta:
-        model = Patient
-        fields = ['id', 'appointment_date', 'name', 'service_type', 'payment_type_display',
-                  'price']
-
-    def get_price(self, obj):
-        if obj.with_discount:
-            return obj.with_discount
-        return obj.service_type.price
+# class ReportExactPatientSerializer(serializers.ModelSerializer):
+#     appointment_date = serializers.DateTimeField(format='%d-%m-%Y %H:%M')
+#     price = serializers.SerializerMethodField()
+#     service_type = ServiceTypeOnlySerializer()
+#     payment_type_display = serializers.CharField(source='get_payment_type_display', read_only=True)
+#
+#     class Meta:
+#         model = Patient
+#         fields = ['id', 'appointment_date', 'name', 'service_type', 'payment_type_display',
+#                   'price']
+#
+#     def get_price(self, obj):
+#         if obj.with_discount:
+#             return obj.with_discount
+#         return obj.service_type.price
 
 
 class ReportDoctorSerializer(serializers.ModelSerializer):
@@ -223,10 +223,52 @@ class ReportDoctorSerializer(serializers.ModelSerializer):
         fields = ['id', 'username', 'doctor_patients']
 
 
+class ReportExactPatientSerializer(serializers.ModelSerializer):
+    appointment_date = serializers.DateTimeField(format='%d-%m-%Y %H:%M')
+    price = serializers.SerializerMethodField()
+    service_type = ServiceTypeOnlySerializer()
+    payment_type_display = serializers.CharField(source='get_payment_type_display', read_only=True)
+
+    class Meta:
+        model = Patient
+        fields = ['id', 'appointment_date', 'name', 'service_type',
+                  'payment_type_display', 'price',]
+
+    def get_price(self, obj):
+        return obj.with_discount or obj.service_type.price
+
+
+# class ReportExactSerializer(serializers.ModelSerializer):
+#     doctor_patients = serializers.SerializerMethodField()
+#
+#     class Meta:
+#         model = Doctor
+#         fields = ['id', 'username', 'bonus', 'doctor_patients']
+#
+#     def get_doctor_patients(self, obj):
+#         """
+#         Берем пациентов, отфильтрованных по дате из context.
+#         Если даты нет, возвращаем всех.
+#         """
+#         patients_qs = self.context.get('patients_qs', obj.doctor_patients.all())
+#         return ReportExactPatientSerializer(patients_qs, many=True).data
+
+
 class ReportExactSerializer(serializers.ModelSerializer):
-    doctor_patients = ReportExactPatientSerializer(many=True, read_only=True)
+    doctor_patients = serializers.SerializerMethodField()
 
     class Meta:
         model = Doctor
-        fields = ['id', 'username', 'bonus', 'doctor_patients']
+        fields = ["id", "username", "bonus", "doctor_patients"]
+
+    def get_doctor_patients(self, obj):
+        """
+        Если указана дата в context — фильтруем пациентов по этой дате.
+        """
+        selected_date = self.context.get("selected_date")
+        patients_qs = obj.doctor_patients.all()
+        if selected_date:
+            patients_qs = patients_qs.filter(appointment_date__date=selected_date)
+
+        return ReportExactPatientSerializer(patients_qs, many=True).data
 

@@ -110,12 +110,13 @@ def create_patients(count, doctors, services, departments, receptionists):
             birthday=fake.date_of_birth(minimum_age=1, maximum_age=90),
             department=random.choice(departments),
             registrar=random.choice(receptionists),
-            appointment_date=datetime.now() + timedelta(days=random.randint(1, 30)),
+            appointment_date=datetime.now() - timedelta(days=random.randint(0, 400)),
             gender=random.choice(['male', 'female']),
             doctor=random.choice(doctors),
             payment_type=random.choice(['cash', 'card']),
             patient_status=random.choice(['pre-registration', 'waiting', 'had an appointment', 'canceled']),
             with_discount=random.choice([None, random.randint(300, 4000)]),
+            primary_patient=random.choice([True, False]),
             info=fake.sentence(),
         ))
     Patient.objects.bulk_create(patients)
