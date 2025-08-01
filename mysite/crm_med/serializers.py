@@ -2,13 +2,54 @@ from django.utils.dateparse import parse_date
 from rest_framework import serializers
 from .models import *
 from rest_framework.exceptions import ValidationError
+from rest_framework_simplejwt.tokens import RefreshToken
+from django.contrib.auth import authenticate
+from django.contrib.auth import get_user_model
 
 
-# class UserProfileSerializer(serializers.ModelSerializer):
-#     role_display = serializers.CharField(source='get_role_display', read_only=True)
-#     class Meta:
-#         model = UserProfile
-#         fields = ['id', 'role', 'role_display']
+User = get_user_model()
+
+class LoginSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    password = serializers.CharField(write_only=True)
+
+    def validate(self, data):
+        email = data.get('email')
+        password = data.get('password')
+
+        try:
+            base_user = UserProfile.objects.get(email=email)
+        except UserProfile.DoesNotExist:
+            raise serializers.ValidationError("Неверные учетные данные")
+
+        # Проверка пароля (учёт hash и обычного текста)
+        if not (base_user.check_password(password) or base_user.password == password):
+            raise serializers.ValidationError("Неверные учетные данные")
+
+        # --- Определяем реальный тип пользователя ---
+        user = None
+        if hasattr(base_user, 'doctor'):
+            user = Doctor.objects.get(pk=base_user.pk)
+        elif hasattr(base_user, 'receptionist'):
+            user = Receptionist.objects.get(pk=base_user.pk)
+        elif hasattr(base_user, 'admin'):
+            user = Admin.objects.get(pk=base_user.pk)
+        else:
+            user = base_user  # fallback (если нет роли)
+
+        return user
+
+    def to_representation(self, instance):
+        refresh = RefreshToken.for_user(instance)
+        return {
+            "user": {
+                "username": instance.username,
+                "email": instance.email,
+                "role": getattr(instance, 'role', None),
+            },
+            "access": str(refresh.access_token),
+            "refresh": str(refresh),
+        }
 
 
 class UserProfileSerializer(serializers.ModelSerializer):

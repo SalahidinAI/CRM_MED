@@ -36,7 +36,7 @@ class UserProfile(AbstractUser):
     phone = PhoneNumberField(null=True, blank=True, unique=True)
 
     def __str__(self):
-        return f'{self.username}'
+        return f'{self.id} {self.username}'
 
     class Meta:
         verbose_name = 'Main UserProfile'

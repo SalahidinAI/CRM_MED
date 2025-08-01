@@ -18,6 +18,22 @@ import openpyxl
 from openpyxl.utils import get_column_letter
 from django.db.models import Count
 from .permissions import *
+from rest_framework_simplejwt.views import TokenObtainPairView
+
+
+class CustomLoginView(TokenObtainPairView):
+    serializer_class = LoginSerializer
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        try:
+            serializer.is_valid(raise_exception=True)
+        except Exception:
+            return Response({"detail": "Неверные учетные данные"}, status=status.HTTP_401_UNAUTHORIZED)
+
+        user = serializer.validated_data
+        # serializer.data вызовет to_representation
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 class DepartmentPatientAPIView(generics.RetrieveAPIView):

@@ -3,6 +3,9 @@ from .views import *
 
 
 urlpatterns = [
+    # authorization
+    path('login/', CustomLoginView.as_view(), name='login'),
+
     # ✅ patient
     path('department/<int:pk>/patient/', DepartmentPatientAPIView.as_view(), name='department_patients'),
     path('patient/create/', PatientCreateAPIView.as_view(), name='patient_create'),
