@@ -17,12 +17,6 @@ class UserProfileSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
-class AdminSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Admin
-        fields = ['username', 'password', 'profile_image', 'email', 'phone']
-
-
 class ReceptionistSerializer(serializers.ModelSerializer):
     class Meta:
         model = Receptionist
@@ -47,6 +41,12 @@ class RoomSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
+class DepartmentNameSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Department
+        fields = ['id', 'department_name']
+
+
 class DoctorSerializer(serializers.ModelSerializer):
     class Meta:
         model = Doctor
@@ -61,6 +61,8 @@ class DoctorCreateEditSerializer(serializers.ModelSerializer):
 
 
 class DoctorListSerializer(serializers.ModelSerializer):
+    department = DepartmentNameSerializer()
+
     class Meta:
         model = Doctor
         fields = ['id', 'username', 'room', 'department', 'phone']
@@ -106,24 +108,19 @@ class PatientCreateSerializer(serializers.ModelSerializer):
                   'with_discount']
 
 
-class DepartmentNameSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Department
-        fields = ['id', 'department_name']
-
-
 class PatientHistoryAppointmentSerializer(serializers.ModelSerializer):
     registrar = ReceptionistNameSerializer()
     department = DepartmentNameSerializer()
     doctor = DoctorNameSerializer()
     service_type = ServiceTypeOnlySerializer()
     created_date = serializers.DateField(format='%d-%m-%Y')
+    appointment_date = serializers.DateTimeField(format='%d-%m-%Y %H:%M')
     patient_status_display = serializers.CharField(source='get_patient_status_display', read_only=True)
 
     class Meta:
         model = Patient
         fields = ['id', 'name', 'registrar', 'department', 'doctor', 'service_type',
-                  'created_date', 'patient_status_display']
+                  'appointment_date', 'created_date', 'patient_status_display']
 
 
 class PatientHistoryPaymentSerializer(serializers.ModelSerializer):
@@ -239,6 +236,16 @@ class ReportExactSerializer(serializers.ModelSerializer):
         discount_price = obj.with_discount
         return discount_price if discount_price else '-'
 
+
+class ReportSummarySerializer(serializers.SerializerMethodField):
+    doctor_cash = serializers.IntegerField()
+    doctor_card = serializers.IntegerField()
+    clinic_cash = serializers.IntegerField()
+    clinic_card = serializers.IntegerField()
+    total_cash = serializers.IntegerField()
+    total_card = serializers.IntegerField()
+    total_clinic = serializers.IntegerField()
+    total_doctor = serializers.IntegerField()
 
 
 

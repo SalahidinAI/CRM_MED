@@ -16,11 +16,7 @@ from rest_framework.permissions import IsAuthenticated
 from django.utils.translation import gettext as _
 import openpyxl
 from openpyxl.utils import get_column_letter
-
-
-class PatientListAPIView(generics.ListAPIView):
-    queryset = Patient.objects.all()
-    serializer_class = PatientListSerializer
+from django.db.models import Count
 
 
 class PatientEditAPIView(generics.RetrieveUpdateDestroyAPIView):
@@ -42,24 +38,92 @@ class PatientCreateAPIView(views.APIView):
 
 
 class PatientHistoryAPIView(generics.ListAPIView):
-    queryset = Patient.objects.all()
     serializer_class = PatientHistoryAppointmentSerializer
 
     def get_queryset(self):
         patient_name = self.kwargs.get('patient_name')
-        return Patient.objects.filter(name=patient_name)
+        qs = Patient.objects.filter(name=patient_name)
+        period = self.request.query_params.get('period')
+        if not period:
+            return qs
+
+        now = timezone.now().date()
+
+        if period == "daily":
+            start_date = now - timedelta(days=1)
+        elif period == "weekly":
+            start_date = now - timedelta(days=7)
+        elif period == "monthly":
+            start_date = now - timedelta(days=30)
+        elif period == "yearly":
+            start_date = now - timedelta(days=365)
+        else:
+            raise ValidationError({"period": "Invalid period. Use daily/weekly/monthly/yearly"})
+
+        qs = qs.filter(created_date__gte=start_date)
+
+        return qs
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+
+        # Считаем статистику по статусам
+        status_counts = queryset.values('patient_status').annotate(count=Count('id'))
+        counts_dict = {status: 0 for status, _ in PATIENT_STATUS_CHOICES}
+
+        for item in status_counts:
+            counts_dict[item['patient_status']] = item['count']
+
+        # Общее количество
+        total_count = queryset.count()
+
+        counts_dict['all'] = total_count
+
+        serializer = self.get_serializer(queryset, many=True)
+        return Response({
+            "report": counts_dict,
+            "patients": serializer.data
+        })
 
 
 class PatientHistoryAppointmentAPIView(generics.ListAPIView):
-    queryset = Patient.objects.all()
     serializer_class = PatientHistoryAppointmentSerializer
 
     def get_queryset(self):
         patient_name = self.kwargs.get('patient_name')
-        return Patient.objects.filter(
-            Q(name=patient_name) &
-            Q(patient_status='had an appointment')
+        qs = Patient.objects.filter(
+            name=patient_name,
+            patient_status='had an appointment'
         )
+
+        period = self.request.query_params.get('period')
+        if not period:  # если параметр не задан — возвращаем всех
+            return qs
+
+        now = timezone.now()
+
+        if period == "daily":
+            start_date = now - timedelta(days=1)
+        elif period == "weekly":
+            start_date = now - timedelta(days=7)
+        elif period == "monthly":
+            start_date = now - timedelta(days=30)
+        elif period == "yearly":
+            start_date = now - timedelta(days=365)
+        else:
+            raise ValidationError({"period": "Invalid period. Use daily/weekly/monthly/yearly"})
+
+        # фильтруем по дате, если period был передан
+        return qs.filter(appointment_date__gte=start_date)
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+
+        return Response({
+            'patient_quantity': queryset.count(),
+            'patients': serializer.data,
+        })
 
 
 class PatientHistoryPaymentAPIView(generics.ListAPIView):
@@ -68,10 +132,52 @@ class PatientHistoryPaymentAPIView(generics.ListAPIView):
 
     def get_queryset(self):
         patient_name = self.kwargs.get('patient_name')
-        return Patient.objects.filter(
+        qs = Patient.objects.filter(
             Q(name=patient_name) &
             Q(patient_status='had an appointment')
         )
+
+        period = self.request.query_params.get('period')
+        if not period:  # если параметр не задан — возвращаем всех
+            return qs
+
+        now = timezone.now()
+
+        if period == "daily":
+            start_date = now - timedelta(days=1)
+        elif period == "weekly":
+            start_date = now - timedelta(days=7)
+        elif period == "monthly":
+            start_date = now - timedelta(days=30)
+        elif period == "yearly":
+            start_date = now - timedelta(days=365)
+        else:
+            raise ValidationError({"period": "Invalid period. Use daily/weekly/monthly/yearly"})
+
+        # фильтруем по дате, если period был передан
+        return qs.filter(appointment_date__gte=start_date)
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+
+        cash = 0
+        card = 0
+        for i in queryset:
+            price = i.with_discount if i.with_discount else i.service_type.price
+            if i.payment_type == 'cash':
+                cash += price
+            else:
+                card += price
+
+        total_sum = cash + card
+
+        return Response({
+            'cash': cash,
+            'card': card,
+            'total_sum': total_sum,
+            'patients': serializer.data,
+        })
 
 
 class PatientInfoAPIView(generics.RetrieveAPIView):
@@ -82,6 +188,21 @@ class PatientInfoAPIView(generics.RetrieveAPIView):
 class DoctorListAPIView(generics.ListAPIView):
     queryset = Doctor.objects.all()
     serializer_class = DoctorListSerializer
+
+    def get_queryset(self):
+        qs = Doctor.objects.all()
+
+        # Фильтр по департаменту
+        department_id = self.request.query_params.get('department')
+        if department_id:
+            qs = qs.filter(department=department_id)
+
+        # Фильтр по имени (частичное совпадение, без учёта регистра)
+        search_name = self.request.query_params.get('name')
+        if search_name:
+            qs = qs.filter(username__icontains=search_name)
+
+        return qs
 
 
 class DoctorEditAPIView(generics.RetrieveUpdateDestroyAPIView):
@@ -99,11 +220,6 @@ class UserProfileAPIView(generics.ListAPIView):
     serializer_class = UserProfileSerializer
 
 
-class AdminCreateAPIView(generics.CreateAPIView):
-    queryset = Admin.objects.all()
-    serializer_class = AdminSerializer
-
-
 class ReceptionistAPIView(generics.ListAPIView):
     queryset = Receptionist.objects.all()
     serializer_class = ReceptionistSerializer
@@ -114,103 +230,54 @@ class DepartmentServiceAPIView(generics.ListAPIView):
     serializer_class = DepartmentServicesSerializer
 
 
+from django.utils.dateparse import parse_date
+from rest_framework.exceptions import ValidationError
+from rest_framework.response import Response
+
 class DepartmentPatientAPIView(generics.RetrieveAPIView):
     queryset = Department.objects.all()
     serializer_class = DepartmentPatientSerializer
+
+    def retrieve(self, request, *args, **kwargs):
+        # Получаем департамент
+        department = self.get_object()
+
+        # Получаем параметры фильтра
+        search_name = request.query_params.get('name')
+        doctor_id = request.query_params.get('doctor')
+        date_str = request.query_params.get('date')
+
+        # Берём пациентов, связанных с департаментом
+        patients_qs = department.patients.select_related('doctor', 'service_type')
+
+        # поиск по имени клиента
+        if search_name:
+            patients_qs = patients_qs.filter(name=search_name)
+
+        # Фильтрация по доктору
+        if doctor_id:
+            patients_qs = patients_qs.filter(doctor_id=doctor_id)
+
+        # Фильтрация по дате
+        if date_str:
+            selected_date = parse_date(date_str)
+            if not selected_date:
+                raise ValidationError({"date": "Invalid date format, use YYYY-MM-DD"})
+            patients_qs = patients_qs.filter(appointment_date__date=selected_date)
+
+        # Временно подменим queryset пациентов на отфильтрованный
+        serializer = self.get_serializer(department)
+        data = serializer.data
+
+        # Заменим пациентов в ответе на отфильтрованные
+        data['patients'] = PatientListSerializer(patients_qs, many=True).data
+
+        return Response(data)
 
 
 class JobTitleAPIView(generics.ListAPIView):
     queryset = JobTitle.objects.all()
     serializer_class = JobTitleSerializer
-
-
-class ReportDoctorAPIView(generics.ListAPIView):
-    """
-        Возвращает список пациентов для конкретного доктора и даты.
-        Фильтры:
-        - doctor (id доктора)
-        - date (YYYY-MM-DD)
-        """
-    serializer_class = ReportDoctorSerializer
-
-    def get_queryset(self):
-        qs = Patient.objects.all()
-
-        doctor_id = self.request.query_params.get('doctor')
-        date_str = self.request.query_params.get('date')
-
-        if doctor_id:
-            qs = qs.filter(doctor_id=doctor_id)
-
-        if date_str:
-            selected_date = parse_date(date_str)
-            if not selected_date:
-                raise ValidationError({"date": "Invalid date format, use YYYY-MM-DD"})
-            qs = qs.filter(appointment_date__date=selected_date)
-
-        return qs
-
-    def list(self, request, *args, **kwargs):
-        queryset = self.get_queryset()
-
-        # Проверяем, нужно ли экспортировать Excel
-        if request.query_params.get("export") == "excel":
-            return self.export_to_excel(queryset)
-
-        serializer = self.get_serializer(queryset, many=True)
-
-        # Считаем сумму цен
-        total_price = sum(
-            p.with_discount if p.with_discount else p.service_type.price
-            for p in queryset
-        )
-
-        return Response({
-            "total_price": total_price,
-            "results": serializer.data
-        })
-
-    def export_to_excel(self, queryset):
-        # Создаем книгу и лист
-        wb = openpyxl.Workbook()
-        ws = wb.active
-        ws.title = "Patients"
-
-        # Заголовки (локализация)
-        lang = self.request.LANGUAGE_CODE
-        if lang == 'ru':
-            headers = ["ID", "Дата", "Имя", "Цена"]
-        else:
-            headers = ["ID", "Date", "Name", "Price"]
-
-        ws.append(headers)
-
-        # Данные
-        for p in queryset:
-            price = p.with_discount if p.with_discount else p.service_type.price
-            ws.append([
-                p.id,
-                p.appointment_date.strftime('%d-%m-%Y %H:%M'),
-                p.name,
-                price,
-            ])
-
-        # Итоговая строка с суммой
-        total_price = sum(
-            p.with_discount if p.with_discount else p.service_type.price
-            for p in queryset
-        )
-        ws.append([])
-        ws.append([_("Total"), "", "", total_price])
-
-        # Ответ с Excel
-        response = HttpResponse(
-            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-        )
-        filename = self.request.query_params.get('filename', 'report_doctor.xlsx')
-        response['Content-Disposition'] = f'attachment; filename={filename}'
-        wb.save(response)
-        return response
 
 
 class ReportExactAPIView(generics.ListAPIView):
@@ -227,10 +294,13 @@ class ReportExactAPIView(generics.ListAPIView):
     def get_queryset(self):
         qs = Patient.objects.select_related("service_type", "doctor")
 
+        search_name = self.request.query_params.get('name')
         doctor_id = self.request.query_params.get('doctor')
         department_id = self.request.query_params.get('department')
         date_str = self.request.query_params.get('date')
 
+        if search_name:
+            qs = qs.filter(name=search_name)
         if doctor_id:
             qs = qs.filter(doctor_id=doctor_id)
         if department_id:
@@ -368,12 +438,255 @@ class ReportExactAPIView(generics.ListAPIView):
         return response
 
 
-class ReportSummaryAPIView(APIView):
-    permission_classes = [] # IsAdministrator, IsReceptionist
+class ReportDoctorAPIView(generics.ListAPIView):
+    """
+        Возвращает список пациентов для конкретного доктора и даты.
+        Фильтры:
+        - doctor (id доктора)
+        - date (YYYY-MM-DD)
+        """
+    serializer_class = ReportDoctorSerializer
 
-    def get(self, request):
-        total = Doctor.get_all_payment()
-        return Response({"general_payment": total})
+    def get_queryset(self):
+        qs = Patient.objects.all()
+
+        # ! I don't know why we need this search_name
+        search_doctor_name = self.request.query_params.get('name')
+        doctor_id = self.request.query_params.get('doctor')
+        date_str = self.request.query_params.get('date')
+        # Tiffany Hall
+
+        if search_doctor_name:
+            qs = qs.filter(doctor__username=search_doctor_name)
+
+        if doctor_id:
+            qs = qs.filter(doctor_id=doctor_id)
+
+        if date_str:
+            selected_date = parse_date(date_str)
+            if not selected_date:
+                raise ValidationError({"date": "Invalid date format, use YYYY-MM-DD"})
+            qs = qs.filter(appointment_date__date=selected_date)
+
+        return qs
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+
+        # Проверяем, нужно ли экспортировать Excel
+        if request.query_params.get("export") == "excel":
+            return self.export_to_excel(queryset)
+
+        serializer = self.get_serializer(queryset, many=True)
+
+        # Считаем сумму цен
+        total_price = sum(
+            p.with_discount if p.with_discount else p.service_type.price
+            for p in queryset
+        )
+
+        return Response({
+            "total_price": total_price,
+            "results": serializer.data
+        })
+
+    def export_to_excel(self, queryset):
+        # Создаем книгу и лист
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "Patients"
+
+        # Заголовки (локализация)
+        lang = self.request.LANGUAGE_CODE
+        if lang == 'ru':
+            headers = ["ID", "Дата", "Имя", "Цена"]
+        else:
+            headers = ["ID", "Date", "Name", "Price"]
+
+        ws.append(headers)
+
+        # Данные
+        for p in queryset:
+            price = p.with_discount if p.with_discount else p.service_type.price
+            ws.append([
+                p.id,
+                p.appointment_date.strftime('%d-%m-%Y %H:%M'),
+                p.name,
+                price,
+            ])
+
+        # Итоговая строка с суммой
+        total_price = sum(
+            p.with_discount if p.with_discount else p.service_type.price
+            for p in queryset
+        )
+        ws.append([])
+        ws.append([_("Total"), "", "", total_price])
+
+        # Ответ с Excel
+        response = HttpResponse(
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        filename = self.request.query_params.get('filename', 'report_doctor.xlsx')
+        response['Content-Disposition'] = f'attachment; filename={filename}'
+        wb.save(response)
+        return response
+
+
+from django.http import HttpResponse
+from rest_framework import generics
+from rest_framework.exceptions import ValidationError
+from django.utils.dateparse import parse_date
+from openpyxl import Workbook
+from openpyxl.utils import get_column_letter
+
+from .models import Patient
+
+
+from django.http import HttpResponse
+from rest_framework import generics
+from rest_framework.exceptions import ValidationError
+from rest_framework.response import Response
+from django.utils.dateparse import parse_date
+from openpyxl import Workbook
+from openpyxl.utils import get_column_letter
+
+from .models import Patient
+
+
+class ReportSummaryAPIView(generics.ListAPIView):
+    """
+    Выводит итоговые суммы за период,
+    а если передан ?export=excel — возвращает Excel файл.
+    """
+
+    def get_queryset(self):
+        return Patient.objects.none()
+
+    def get_report_data(self):
+        qs = Patient.objects.all()
+
+        # ! I don't know why we need this search_name
+        search_name = self.request.query_params.get('name')
+        date_from = self.request.query_params.get('date_from')
+        date_to = self.request.query_params.get('date_to')
+
+        if search_name:
+            qs = qs.filter(name=search_name)
+
+        if date_from:
+            selected_date_from = parse_date(date_from)
+            if not selected_date_from:
+                raise ValidationError({"date_from": "Invalid date format, use YYYY-MM-DD"})
+            qs = qs.filter(appointment_date__date__gte=selected_date_from)
+
+        if date_to:
+            selected_date_to = parse_date(date_to)
+            if not selected_date_to:
+                raise ValidationError({"date_to": "Invalid date format, use YYYY-MM-DD"})
+            qs = qs.filter(appointment_date__date__lte=selected_date_to)
+
+        doctor_cash = 0
+        doctor_card = 0
+        clinic_cash = 0
+        clinic_card = 0
+
+        for patient in qs:
+            price = patient.with_discount if patient.with_discount else patient.service_type.price
+            bonus = patient.doctor.bonus
+
+            doctor_part = price / 100 * bonus if bonus else 1
+
+            if patient.payment_type == 'cash':
+                doctor_cash += doctor_part
+                clinic_cash += price - doctor_part
+            else:
+                doctor_card += doctor_part
+                clinic_card += price - doctor_part
+
+        total_cash = doctor_cash + clinic_cash
+        total_card = doctor_card + clinic_card
+        total_clinic = clinic_cash + clinic_card
+        total_doctor = doctor_cash + doctor_card
+
+        return {
+            'doctor_cash': int(doctor_cash),
+            'doctor_card': int(doctor_card),
+
+            'clinic_cash': int(clinic_cash),
+            'clinic_card': int(clinic_card),
+
+            'total_cash': int(total_cash),
+            'total_card': int(total_card),
+
+            'total_clinic': int(total_clinic),
+            'total_doctor': int(total_doctor),
+        }
+
+    def list(self, request, *args, **kwargs):
+        report_data = self.get_report_data()
+
+        # Если экспорт в Excel
+        if request.query_params.get('export') == 'excel':
+            wb = Workbook()
+            ws = wb.active
+            ws.title = "Report Summary"
+
+            # Заголовки с учетом языка
+            lang = self.request.LANGUAGE_CODE
+            if lang == 'ru':
+                headers = [
+                    "Докторам наличными", "Докторам безналичными",
+                    "Сумма клинике наличными", "Сумма клинике безналичными",
+                    "Общие наличные", "Общие безналичные",
+                    "Клинике", "Докторам",
+                ]
+            else:
+                headers = [
+                    "Doctor cash", "Doctor non-cash",
+                    "Clinic cash", "Clinic non-cash",
+                    "Total cash", "Total non-cash",
+                    "Total clinic", "Total doctors",
+                ]
+
+            ws.append(headers)
+
+            # Данные
+            ws.append([
+                report_data['doctor_cash'],
+                report_data['doctor_card'],
+                report_data['clinic_cash'],
+                report_data['clinic_card'],
+                report_data['total_cash'],
+                report_data['total_card'],
+                report_data['total_clinic'],
+                report_data['total_doctor'],
+            ])
+
+            # Автоматическая ширина колонок
+            for i, col in enumerate(ws.columns, start=1):
+                max_length = 0
+                column = get_column_letter(i)
+                for cell in col:
+                    try:
+                        if len(str(cell.value)) > max_length:
+                            max_length = len(str(cell.value))
+                    except:
+                        pass
+                adjusted_width = (max_length + 2)
+                ws.column_dimensions[column].width = adjusted_width
+
+            # HTTP-ответ
+            response = HttpResponse(
+                content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            )
+            filename = request.query_params.get('filename', 'report_summary.xlsx')
+            response['Content-Disposition'] = f'attachment; filename={filename}'
+            wb.save(response)
+            return response
+
+        # Если Excel не нужен — JSON
+        return Response(report_data)
 
 
 class AnalysisAPIView(APIView):
