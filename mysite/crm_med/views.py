@@ -17,14 +17,54 @@ from django.utils.translation import gettext as _
 import openpyxl
 from openpyxl.utils import get_column_letter
 from django.db.models import Count
+from .permissions import *
 
 
-class PatientEditAPIView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = Patient.objects.all()
-    serializer_class = PatientEditSerializer
+class DepartmentPatientAPIView(generics.RetrieveAPIView):
+    queryset = Department.objects.all()
+    serializer_class = DepartmentPatientSerializer
+    permission_classes = [IsAdmin, IsReceptionist]
+
+    def retrieve(self, request, *args, **kwargs):
+        # Получаем департамент
+        department = self.get_object()
+
+        # Получаем параметры фильтра
+        search_name = request.query_params.get('name')
+        doctor_id = request.query_params.get('doctor')
+        date_str = request.query_params.get('date')
+
+        # Берём пациентов, связанных с департаментом
+        patients_qs = department.patients.select_related('doctor', 'service_type')
+
+        # поиск по имени клиента
+        if search_name:
+            patients_qs = patients_qs.filter(name=search_name)
+
+        # Фильтрация по доктору
+        if doctor_id:
+            patients_qs = patients_qs.filter(doctor_id=doctor_id)
+
+        # Фильтрация по дате
+        if date_str:
+            selected_date = parse_date(date_str)
+            if not selected_date:
+                raise ValidationError({"date": "Invalid date format, use YYYY-MM-DD"})
+            patients_qs = patients_qs.filter(appointment_date__date=selected_date)
+
+        # Временно подменим queryset пациентов на отфильтрованный
+        serializer = self.get_serializer(department)
+        data = serializer.data
+
+        # Заменим пациентов в ответе на отфильтрованные
+        data['patients'] = PatientListSerializer(patients_qs, many=True).data
+
+        return Response(data)
 
 
 class PatientCreateAPIView(views.APIView):
+    permission_classes = [IsAdmin, IsReceptionist]
+
     def post(self, request):
         serializer = PatientCreateSerializer(data=request.data)
         if serializer.is_valid():
@@ -35,6 +75,11 @@ class PatientCreateAPIView(views.APIView):
             return Response(serializer.data, status=status.HTTP_201_CREATED)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class PatientEditAPIView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Patient.objects.all()
+    serializer_class = PatientEditSerializer
 
 
 class PatientHistoryAPIView(generics.ListAPIView):
@@ -188,6 +233,7 @@ class PatientInfoAPIView(generics.RetrieveAPIView):
 class DoctorListAPIView(generics.ListAPIView):
     queryset = Doctor.objects.all()
     serializer_class = DoctorListSerializer
+    permission_classes = [IsAdmin, IsReceptionist]
 
     def get_queryset(self):
         qs = Doctor.objects.all()
@@ -208,11 +254,13 @@ class DoctorListAPIView(generics.ListAPIView):
 class DoctorEditAPIView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Doctor.objects.all()
     serializer_class = DoctorCreateEditSerializer
+    permission_classes = [IsAdmin, IsDoctor]
 
 
 class DoctorCreateAPIView(generics.CreateAPIView):
     queryset = Doctor.objects.all()
     serializer_class = DoctorCreateEditSerializer
+    permission_classes = [IsAdmin]
 
 
 class UserProfileAPIView(generics.ListAPIView):
@@ -228,51 +276,7 @@ class ReceptionistAPIView(generics.ListAPIView):
 class DepartmentServiceAPIView(generics.ListAPIView):
     queryset = Department.objects.all()
     serializer_class = DepartmentServicesSerializer
-
-
-from django.utils.dateparse import parse_date
-from rest_framework.exceptions import ValidationError
-from rest_framework.response import Response
-
-class DepartmentPatientAPIView(generics.RetrieveAPIView):
-    queryset = Department.objects.all()
-    serializer_class = DepartmentPatientSerializer
-
-    def retrieve(self, request, *args, **kwargs):
-        # Получаем департамент
-        department = self.get_object()
-
-        # Получаем параметры фильтра
-        search_name = request.query_params.get('name')
-        doctor_id = request.query_params.get('doctor')
-        date_str = request.query_params.get('date')
-
-        # Берём пациентов, связанных с департаментом
-        patients_qs = department.patients.select_related('doctor', 'service_type')
-
-        # поиск по имени клиента
-        if search_name:
-            patients_qs = patients_qs.filter(name=search_name)
-
-        # Фильтрация по доктору
-        if doctor_id:
-            patients_qs = patients_qs.filter(doctor_id=doctor_id)
-
-        # Фильтрация по дате
-        if date_str:
-            selected_date = parse_date(date_str)
-            if not selected_date:
-                raise ValidationError({"date": "Invalid date format, use YYYY-MM-DD"})
-            patients_qs = patients_qs.filter(appointment_date__date=selected_date)
-
-        # Временно подменим queryset пациентов на отфильтрованный
-        serializer = self.get_serializer(department)
-        data = serializer.data
-
-        # Заменим пациентов в ответе на отфильтрованные
-        data['patients'] = PatientListSerializer(patients_qs, many=True).data
-
-        return Response(data)
+    permission_classes = [IsAdmin, IsReceptionist]
 
 
 class JobTitleAPIView(generics.ListAPIView):
@@ -290,6 +294,7 @@ class ReportExactAPIView(generics.ListAPIView):
     Если передан параметр export=excel, возвращается Excel-файл.
     """
     serializer_class = ReportExactSerializer
+    permission_classes = [IsAdmin, IsReceptionist]
 
     def get_queryset(self):
         qs = Patient.objects.select_related("service_type", "doctor")
@@ -446,6 +451,7 @@ class ReportDoctorAPIView(generics.ListAPIView):
         - date (YYYY-MM-DD)
         """
     serializer_class = ReportDoctorSerializer
+    permission_classes = [IsAdmin, IsReceptionist]
 
     def get_queryset(self):
         qs = Patient.objects.all()
@@ -559,6 +565,7 @@ class ReportSummaryAPIView(generics.ListAPIView):
     Выводит итоговые суммы за период,
     а если передан ?export=excel — возвращает Excel файл.
     """
+    permission_classes = [IsAdmin, IsReceptionist]
 
     def get_queryset(self):
         return Patient.objects.none()
@@ -690,7 +697,7 @@ class ReportSummaryAPIView(generics.ListAPIView):
 
 
 class AnalysisAPIView(APIView):
-    permission_classes = [] # IsAdministrator
+    permission_classes = [IsAdmin]
 
     def get(self, request):
         period = request.query_params.get("period", "weekly")
