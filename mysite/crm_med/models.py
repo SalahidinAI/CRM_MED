@@ -180,3 +180,4 @@ class Patient(models.Model):
 # patient_status (choices) (предварительная запись, в ожидании, был в приеме, отменено)
 # with_discount (сумма оплаты) (если это поле пуста то будем считать сумму в service_type
 # created_date (date)
+
