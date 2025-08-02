@@ -810,3 +810,12 @@ class AnalysisAPIView(APIView):
         })
 
 
+class CalendarListAPIView(generics.ListAPIView):
+    queryset = Patient.objects.all()
+    serializer_class = CalendarReport
+
+
+class CalendarRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Patient.objects.all()
+    serializer_class = CalendarReport
+

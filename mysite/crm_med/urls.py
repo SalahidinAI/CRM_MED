@@ -30,4 +30,8 @@ urlpatterns = [
 
     # ✅ analysis
     path('analysis_regression/', AnalysisAPIView.as_view(), name='analysis_regression'),
+
+    # calendar
+    path('calendar/', CalendarListAPIView.as_view(), name='calendar_list'),
+    path('calendar/<int:pk>/', CalendarRetrieveUpdateDestroyAPIView.as_view(), name='calendar_detail'),
 ]

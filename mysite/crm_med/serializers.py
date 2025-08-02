@@ -289,4 +289,22 @@ class ReportSummarySerializer(serializers.SerializerMethodField):
     total_doctor = serializers.IntegerField()
 
 
+class DoctorForCalendar(serializers.ModelSerializer):
+    job_title = JobTitleSerializer()
+
+    class Meta:
+        model = Doctor
+        fields = ['username', 'job_title']
+
+
+class CalendarReport(serializers.ModelSerializer):
+    patient_status_display = serializers.CharField(source='get_patient_status_display', read_only=True)
+    appointment_date = serializers.DateTimeField(format="%Y-%m-%d %H:%M")
+    doctor = DoctorForCalendar(read_only=True)
+    department = DepartmentNameSerializer()
+
+    class Meta:
+        model = Patient
+        fields = ['patient_status_display', 'department', 'appointment_date', 'doctor']
+
 

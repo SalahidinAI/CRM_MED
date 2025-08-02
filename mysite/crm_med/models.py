@@ -133,6 +133,9 @@ class Patient(models.Model):
 
 
 
+
+
+
 # ADMIN:
 # image
 # username
