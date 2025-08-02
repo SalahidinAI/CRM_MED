@@ -181,3 +181,7 @@ class Patient(models.Model):
 # with_discount (сумма оплаты) (если это поле пуста то будем считать сумму в service_type
 # created_date (date)
 
+
+
+
+# sdf
