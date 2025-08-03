@@ -19,6 +19,9 @@ from openpyxl.utils import get_column_letter
 from django.db.models import Count
 from .permissions import *
 from rest_framework_simplejwt.views import TokenObtainPairView
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+from rest_framework import status
 
 
 class CustomLoginView(TokenObtainPairView):
@@ -28,18 +31,17 @@ class CustomLoginView(TokenObtainPairView):
         serializer = self.get_serializer(data=request.data)
         try:
             serializer.is_valid(raise_exception=True)
-        except Exception:
-            return Response({"detail": "Неверные учетные данные"}, status=status.HTTP_401_UNAUTHORIZED)
+        except Exception as e:
+            return Response({"detail": f"Неверные учетные данные: {e}"}, status=status.HTTP_401_UNAUTHORIZED)
 
         user = serializer.validated_data
-        # serializer.data вызовет to_representation
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 class DepartmentPatientAPIView(generics.RetrieveAPIView):
     queryset = Department.objects.all()
     serializer_class = DepartmentPatientSerializer
-    permission_classes = [IsAdmin, IsReceptionist]
+    permission_classes = [IsAdmin | IsReceptionist]
 
     def retrieve(self, request, *args, **kwargs):
         # Получаем департамент
@@ -79,7 +81,7 @@ class DepartmentPatientAPIView(generics.RetrieveAPIView):
 
 
 class PatientCreateAPIView(views.APIView):
-    permission_classes = [IsAdmin, IsReceptionist]
+    permission_classes = [IsAdmin | IsReceptionist]
 
     def post(self, request):
         serializer = PatientCreateSerializer(data=request.data)
@@ -246,10 +248,16 @@ class PatientInfoAPIView(generics.RetrieveAPIView):
     serializer_class = PatientInfoSerializer
 
 
+class ReceptionistEditAPIView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Patient.objects.all()
+    serializer_class = ReceptionistSerializer
+    permission_classes = [IsAdmin | IsReceptionist]
+
+
 class DoctorListAPIView(generics.ListAPIView):
     queryset = Doctor.objects.all()
     serializer_class = DoctorListSerializer
-    permission_classes = [IsAdmin, IsReceptionist]
+    permission_classes = [IsAdmin | IsReceptionist]
 
     def get_queryset(self):
         qs = Doctor.objects.all()
@@ -270,7 +278,17 @@ class DoctorListAPIView(generics.ListAPIView):
 class DoctorEditAPIView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Doctor.objects.all()
     serializer_class = DoctorCreateEditSerializer
-    permission_classes = [IsAdmin, IsDoctor]
+    permission_classes = [IsAdmin | DoctorRetrieve]
+
+
+class DoctorNotificationAPIView(generics.ListAPIView):
+    queryset = Patient.objects.all()
+    serializer_class = DoctorNotificationSerializer
+    permission_classes = [IsDoctor]
+
+    def get_queryset(self):
+        return Patient.objects.filter(doctor=self.request.user.id)
+
 
 
 class DoctorCreateAPIView(generics.CreateAPIView):
@@ -278,21 +296,19 @@ class DoctorCreateAPIView(generics.CreateAPIView):
     serializer_class = DoctorCreateEditSerializer
     permission_classes = [IsAdmin]
 
+    def perform_create(self, serializer):
+        serializer.save(user_role="doctor")
+
 
 class UserProfileAPIView(generics.ListAPIView):
     queryset = UserProfile.objects.all()
     serializer_class = UserProfileSerializer
 
 
-class ReceptionistAPIView(generics.ListAPIView):
-    queryset = Receptionist.objects.all()
-    serializer_class = ReceptionistSerializer
-
-
 class DepartmentServiceAPIView(generics.ListAPIView):
     queryset = Department.objects.all()
     serializer_class = DepartmentServicesSerializer
-    permission_classes = [IsAdmin, IsReceptionist]
+    permission_classes = [IsAdmin | IsReceptionist]
 
 
 class JobTitleAPIView(generics.ListAPIView):
@@ -310,7 +326,7 @@ class ReportExactAPIView(generics.ListAPIView):
     Если передан параметр export=excel, возвращается Excel-файл.
     """
     serializer_class = ReportExactSerializer
-    permission_classes = [IsAdmin, IsReceptionist]
+    permission_classes = [IsAdmin | IsReceptionist]
 
     def get_queryset(self):
         qs = Patient.objects.select_related("service_type", "doctor")
@@ -467,7 +483,7 @@ class ReportDoctorAPIView(generics.ListAPIView):
         - date (YYYY-MM-DD)
         """
     serializer_class = ReportDoctorSerializer
-    permission_classes = [IsAdmin, IsReceptionist]
+    permission_classes = [IsAdmin | IsReceptionist]
 
     def get_queryset(self):
         qs = Patient.objects.all()
@@ -581,7 +597,7 @@ class ReportSummaryAPIView(generics.ListAPIView):
     Выводит итоговые суммы за период,
     а если передан ?export=excel — возвращает Excel файл.
     """
-    permission_classes = [IsAdmin, IsReceptionist]
+    permission_classes = [IsAdmin | IsReceptionist]
 
     def get_queryset(self):
         return Patient.objects.none()
@@ -810,3 +826,10 @@ class AnalysisAPIView(APIView):
         })
 
 
+@api_view(['POST'])
+def verify_reset_code(request):
+    serializer = VerifyResetCodeSerializer(data=request.data)
+    if serializer.is_valid():
+        serializer.save()
+        return Response({'message': 'Пароль успешно сброшен.'}, status=status.HTTP_200_OK)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

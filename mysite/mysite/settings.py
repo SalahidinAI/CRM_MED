@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     'phonenumber_field',
     'rest_framework_simplejwt',
     'rest_framework_simplejwt.token_blacklist',
+    'django_rest_passwordreset',
 ]
 
 MIDDLEWARE = [
@@ -160,9 +161,16 @@ AUTH_USER_MODEL = 'crm_med.UserProfile'
 # }
 
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=20),
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=520),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
     "ROTATE_REFRESH_TOKENS": False,
     "BLACKLIST_AFTER_ROTATION": False,
     "AUTH_HEADER_TYPES": ('Bearer',),
 }
+
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = 'zulpukarovz555@gmail.com'
+EMAIL_HOST_PASSWORD = 'ywqy kfeh xyne dofn'
+

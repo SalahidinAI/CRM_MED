@@ -34,6 +34,7 @@ class UserProfile(AbstractUser):
     profile_image = models.ImageField(upload_to='user_images/')
     email = models.EmailField(unique=True)
     phone = PhoneNumberField(null=True, blank=True, unique=True)
+    user_role = models.CharField(null=True, blank=True, max_length=32, choices=ROLE_CHOICES)
 
     def __str__(self):
         return f'{self.id} {self.username}'
@@ -131,6 +132,8 @@ class Patient(models.Model):
     def __str__(self):
         return f'{self.id} {self.name}'
 
+    class Meta:
+        ordering = ('-appointment_date',)
 
 
 # ADMIN:

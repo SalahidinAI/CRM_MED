@@ -1,4 +1,4 @@
-from django.urls import path
+from django.urls import path, include
 from .views import *
 
 
@@ -15,9 +15,13 @@ urlpatterns = [
     path('patient/<str:patient_name>/history_of_payment/', PatientHistoryPaymentAPIView.as_view(), name='patient_history_of_payment'),
     path('patient/<int:pk>/info/', PatientInfoAPIView.as_view(), name='patient_info'),
 
+    # ✅ receptionist
+    path('receptionist/<int:pk>/', ReceptionistEditAPIView.as_view(), name='receptionist_edit'),
+
     # ✅ doctor
     path('doctor/', DoctorListAPIView.as_view(), name='doctor_list'),
     path('doctor/<int:pk>/', DoctorEditAPIView.as_view(), name='doctor_edit'),
+    path('doctor/notification/', DoctorNotificationAPIView.as_view(), name='doctor_edit'),
     path('doctor/create/', DoctorCreateAPIView.as_view(), name='doctor_create'),
 
     # ✅ department
@@ -29,5 +33,9 @@ urlpatterns = [
     path('report/summary/', ReportSummaryAPIView.as_view(), name='report_summary'),
 
     # ✅ analysis
-    path('analysis_regression/', AnalysisAPIView.as_view(), name='analysis_regression'),
+    path('analysis/', AnalysisAPIView.as_view(), name='analysis_regression'),
+
+    # ✅ reset password
+    path('password_reset/verify_code/', verify_reset_code, name='verify_reset_code'),
+    path('password_reset/', include('django_rest_passwordreset.urls', namespace='password_reset')),
 ]

@@ -1,10 +1,13 @@
 from django.utils.dateparse import parse_date
 from rest_framework import serializers
+from rest_framework.response import Response
+from rest_framework import status
 from .models import *
 from rest_framework.exceptions import ValidationError
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import authenticate
 from django.contrib.auth import get_user_model
+from django_rest_passwordreset.models import ResetPasswordToken
 
 
 User = get_user_model()
@@ -18,37 +21,30 @@ class LoginSerializer(serializers.Serializer):
         password = data.get('password')
 
         try:
-            base_user = UserProfile.objects.get(email=email)
-        except UserProfile.DoesNotExist:
-            raise serializers.ValidationError("Неверные учетные данные")
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            raise serializers.ValidationError("Пользователь с таким email не найден")
 
-        # Проверка пароля (учёт hash и обычного текста)
-        if not (base_user.check_password(password) or base_user.password == password):
-            raise serializers.ValidationError("Неверные учетные данные")
+        if not (user.check_password(password) or user.password == password):
+            raise serializers.ValidationError("Неверный пароль")
 
-        # --- Определяем реальный тип пользователя ---
-        user = None
-        if hasattr(base_user, 'doctor'):
-            user = Doctor.objects.get(pk=base_user.pk)
-        elif hasattr(base_user, 'receptionist'):
-            user = Receptionist.objects.get(pk=base_user.pk)
-        elif hasattr(base_user, 'admin'):
-            user = Admin.objects.get(pk=base_user.pk)
-        else:
-            user = base_user  # fallback (если нет роли)
+        if not user.is_active:
+            raise serializers.ValidationError("Пользователь не активен")
 
-        return user
+        self.context['user'] = user
+        return data
 
     def to_representation(self, instance):
-        refresh = RefreshToken.for_user(instance)
+        user = self.context['user']
+        refresh = RefreshToken.for_user(user)
+
         return {
-            "user": {
-                "username": instance.username,
-                "email": instance.email,
-                "role": getattr(instance, 'role', None),
+            'user': {
+                'username': user.username,
+                'email': user.email,
             },
-            "access": str(refresh.access_token),
-            "refresh": str(refresh),
+            'access': str(refresh.access_token),
+            'refresh': str(refresh),
         }
 
 
@@ -99,6 +95,16 @@ class DoctorCreateEditSerializer(serializers.ModelSerializer):
         model = Doctor
         fields = ['username', 'password', 'profile_image', 'department', 'job_title',
                   'phone', 'room', 'email', 'bonus']
+
+
+class DoctorNotificationSerializer(serializers.ModelSerializer):
+    department = DepartmentNameSerializer()
+    registrar = ReceptionistNameSerializer()
+    appointment_date = serializers.DateTimeField(format('%d-%m-%Y %H:%M'))
+
+    class Meta:
+        model = Patient
+        fields = ['id', 'name', 'appointment_date', 'department', 'registrar']
 
 
 class DoctorListSerializer(serializers.ModelSerializer):
@@ -289,4 +295,29 @@ class ReportSummarySerializer(serializers.SerializerMethodField):
     total_doctor = serializers.IntegerField()
 
 
+class VerifyResetCodeSerializer(serializers.Serializer):
+    email = serializers.EmailField()  # Email пользователя
+    reset_code = serializers.IntegerField()  # 4-значный код
+    new_password = serializers.CharField(write_only=True)  # Новый пароль
+
+    def validate(self, data):
+        email = data.get('email')
+        reset_code = data.get('reset_code')
+
+        # Проверяем, существует ли указанный код для email
+        try:
+            token = ResetPasswordToken.objects.get(user__email=email, key=reset_code)
+        except ResetPasswordToken.DoesNotExist:
+            raise serializers.ValidationError("Неверный код сброса или email.")
+
+        data['user'] = token.user
+        return data
+
+    def save(self):
+        user = self.validated_data['user']
+        new_password = self.validated_data['new_password']
+
+        # Устанавливаем новый пароль
+        user.set_password(new_password)
+        user.save()
 
