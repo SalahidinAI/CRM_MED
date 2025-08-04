@@ -19,6 +19,7 @@ from openpyxl.utils import get_column_letter
 from django.db.models import Count
 from .permissions import *
 from rest_framework_simplejwt.views import TokenObtainPairView
+from django_filters.rest_framework import DjangoFilterBackend
 
 
 class CustomLoginView(TokenObtainPairView):
@@ -813,6 +814,8 @@ class AnalysisAPIView(APIView):
 class CalendarListAPIView(generics.ListAPIView):
     queryset = Patient.objects.all()
     serializer_class = CalendarReport
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ['doctor', 'department']
 
 
 class CalendarRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):

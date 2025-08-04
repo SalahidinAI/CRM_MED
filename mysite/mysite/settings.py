@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     'phonenumber_field',
     'rest_framework_simplejwt',
     'rest_framework_simplejwt.token_blacklist',
+    'django_filters',
 ]
 
 MIDDLEWARE = [
@@ -165,4 +166,8 @@ SIMPLE_JWT = {
     "ROTATE_REFRESH_TOKENS": False,
     "BLACKLIST_AFTER_ROTATION": False,
     "AUTH_HEADER_TYPES": ('Bearer',),
+}
+
+REST_FRAMEWORK = {
+    'DEFAULT_FILTER_BACKENDS': ['django_filters.rest_framework.DjangoFilterBackend'],
 }
