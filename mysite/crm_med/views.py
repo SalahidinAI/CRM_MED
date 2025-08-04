@@ -290,7 +290,6 @@ class DoctorNotificationAPIView(generics.ListAPIView):
         return Patient.objects.filter(doctor=self.request.user.id)
 
 
-
 class DoctorCreateAPIView(generics.CreateAPIView):
     queryset = Doctor.objects.all()
     serializer_class = DoctorCreateEditSerializer
