@@ -1,0 +1,55 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pyc
+
+# Bytecode и кеш
+*.log
+*.pot
+*.mo
+*.py~
+*.swp
+*.swo
+
+# virtualenv
+venv/
+env/
+
+# Django media & static
+media/
+staticfiles/
+
+# Базы данных
+*.sqlite3
+*.db
+
+# Migrations (если хочешь не отслеживать)
+**/migrations/*
+!**/migrations/__init__.py
+
+# IDE / редакторы
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node (если фронт)
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Docker
+*.pid
+*.seed
+*.bak
+*.tar
+*.gz
+
+# dotenv (если хранишь секреты)
+.env
