@@ -44,7 +44,8 @@ class UserProfile(AbstractUser):
 
 
 class Admin(UserProfile):
-    role = models.CharField(max_length=16, choices=ROLE_CHOICES, default='admin')
+    pass
+    # role = models.CharField(max_length=16, choices=ROLE_CHOICES, default='admin')
 
     def __str__(self):
         return f'{self.username}'
@@ -54,7 +55,8 @@ class Admin(UserProfile):
 
 
 class Receptionist(UserProfile):
-    role = models.CharField(max_length=16, choices=ROLE_CHOICES, default='receptionist')
+    pass
+    # role = models.CharField(max_length=16, choices=ROLE_CHOICES, default='receptionist')
 
     def __str__(self):
         return f'{self.username}'
@@ -91,7 +93,7 @@ class Doctor(UserProfile):
     bonus = models.PositiveSmallIntegerField(default=5, validators=[
         MinValueValidator(5), MaxValueValidator(60)
     ])
-    role = models.CharField(max_length=16, choices=ROLE_CHOICES, default='doctor')
+    # role = models.CharField(max_length=16, choices=ROLE_CHOICES, default='doctor')
 
     def __str__(self):
         return f'{self.id} {self.username} - {self.room}'

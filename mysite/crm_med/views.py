@@ -22,6 +22,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
+from django_filters.rest_framework import DjangoFilterBackend
 
 
 class CustomLoginView(TokenObtainPairView):
@@ -832,3 +833,12 @@ def verify_reset_code(request):
         serializer.save()
         return Response({'message': 'Пароль успешно сброшен.'}, status=status.HTTP_200_OK)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class CalendarListAPIView(generics.ListAPIView):
+    queryset = Patient.objects.all()
+    serializer_class = CalendarReport
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ['doctor', 'department']
+
+

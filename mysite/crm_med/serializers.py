@@ -1,3 +1,4 @@
+from datetime import timedelta
 from django.utils.dateparse import parse_date
 from rest_framework import serializers
 from rest_framework.response import Response
@@ -70,7 +71,7 @@ class ReceptionistNameSerializer(serializers.ModelSerializer):
 class JobTitleSerializer(serializers.ModelSerializer):
     class Meta:
         model = JobTitle
-        fields = '__all__'
+        fields = ['job_title']
 
 
 class RoomSerializer(serializers.ModelSerializer):
@@ -321,4 +322,29 @@ class VerifyResetCodeSerializer(serializers.Serializer):
         # Устанавливаем новый пароль
         user.set_password(new_password)
         user.save()
+
+
+class DoctorForCalendar(serializers.ModelSerializer):
+    job_title = JobTitleSerializer()
+
+    class Meta:
+        model = Doctor
+        fields = ['username', 'job_title']
+
+
+class CalendarReport(serializers.ModelSerializer):
+    patient_status_display = serializers.CharField(source='get_patient_status_display', read_only=True)
+    appointment_date = serializers.DateTimeField(format="%Y-%m-%d %H:%M")
+    appointment_date_end = serializers.SerializerMethodField()
+    doctor = DoctorForCalendar(read_only=True)
+    department = DepartmentNameSerializer()
+
+    class Meta:
+        model = Patient
+        fields = ['id', 'patient_status_display', 'department', 'appointment_date',
+                  'appointment_date_end', 'doctor']
+
+    def get_appointment_date_end(self, obj):
+        date_end = obj.appointment_date + timedelta(minutes=15)
+        return date_end.strftime('%d-%m-%Y %H:%M')
 
