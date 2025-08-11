@@ -123,6 +123,12 @@ class DoctorNameSerializer(serializers.ModelSerializer):
         fields = ['id', 'username']
 
 
+class DoctorPatientSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Patient
+        fields = '__all__'
+
+
 class ServiceTypeSerializer(serializers.ModelSerializer):
     class Meta:
         model = ServiceType

@@ -23,6 +23,7 @@ urlpatterns = [
     path('doctor/<int:pk>/', DoctorEditAPIView.as_view(), name='doctor_edit'),
     path('doctor/notification/', DoctorNotificationAPIView.as_view(), name='doctor_edit'),
     path('doctor/create/', DoctorCreateAPIView.as_view(), name='doctor_create'),
+    path('doctor/patient/', DoctorPatientAPIView.as_view(), name='doctor_patients'),
 
     # ✅ department
     path('department_service/', DepartmentServiceAPIView.as_view(), name='department_list_services'),

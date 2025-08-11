@@ -300,6 +300,14 @@ class DoctorCreateAPIView(generics.CreateAPIView):
         serializer.save(user_role="doctor")
 
 
+class DoctorPatientAPIView(generics.ListAPIView):
+    queryset = Patient.objects.all()
+    serializer_class = DoctorPatientSerializer
+
+    def get_queryset(self):
+        return Patient.objects.filter(doctor=self.request.user.id)
+
+
 class UserProfileAPIView(generics.ListAPIView):
     queryset = UserProfile.objects.all()
     serializer_class = UserProfileSerializer
