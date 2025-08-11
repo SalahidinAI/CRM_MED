@@ -111,22 +111,17 @@ class DoctorNotificationSerializer(serializers.ModelSerializer):
 
 class DoctorListSerializer(serializers.ModelSerializer):
     department = DepartmentNameSerializer()
+    job_title = JobTitleSerializer()
 
     class Meta:
         model = Doctor
-        fields = ['id', 'username', 'room', 'department', 'phone']
+        fields = ['id', 'username', 'room', 'department', 'phone', 'job_title']
 
 
 class DoctorNameSerializer(serializers.ModelSerializer):
     class Meta:
         model = Doctor
         fields = ['id', 'username']
-
-
-class DoctorPatientSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Patient
-        fields = '__all__'
 
 
 class ServiceTypeSerializer(serializers.ModelSerializer):
@@ -139,6 +134,28 @@ class ServiceTypeOnlySerializer(serializers.ModelSerializer):
     class Meta:
         model = ServiceType
         fields = ['id', 'type']
+
+
+class DoctorPatientSerializer(serializers.ModelSerializer):
+    birthday = serializers.DateField(format('%d-%m-%Y'))
+    created_date = serializers.DateField(format('%d-%m-%Y'))
+    appointment_date = serializers.DateTimeField(format="%Y-%m-%d %H:%M")
+    gender_display = serializers.CharField(source='get_gender_display', read_only=True)
+    payment_type_display = serializers.CharField(source='get_payment_type_display', read_only=True)
+    patient_status_display = serializers.CharField(source='get_patient_status_display', read_only=True)
+    service_type = ServiceTypeOnlySerializer()
+    department = DepartmentNameSerializer()
+    doctor = DoctorListSerializer()
+    # doctor_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Patient
+        fields = ['id', 'name', 'phone', 'birthday', 'appointment_date', 'gender_display',
+                  'payment_type_display', 'patient_status_display', 'with_discount', 'created_date',
+                  'service_type', 'department', 'doctor']
+
+    # def get_doctor_name(self, obj):
+    #     return obj.doctor.job_title
 
 
 class PatientSerializer(serializers.ModelSerializer):
