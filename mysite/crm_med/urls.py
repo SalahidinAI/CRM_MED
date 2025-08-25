@@ -26,6 +26,7 @@ urlpatterns = [
     path('doctor/patient/', DoctorPatientAPIView.as_view(), name='doctor_patients'),
 
     # ✅ department
+    path('department/', DepartmentListAPIView.as_view(), name='department_list'),
     path('department_service/', DepartmentServiceAPIView.as_view(), name='department_list_services'),
 
     # ✅ report

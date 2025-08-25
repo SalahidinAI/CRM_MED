@@ -313,6 +313,11 @@ class UserProfileAPIView(generics.ListAPIView):
     serializer_class = UserProfileSerializer
 
 
+class DepartmentListAPIView(generics.ListAPIView):
+    queryset = Department.objects.all()
+    serializer_class = DepartmentListSerializer
+
+
 class DepartmentServiceAPIView(generics.ListAPIView):
     queryset = Department.objects.all()
     serializer_class = DepartmentServicesSerializer

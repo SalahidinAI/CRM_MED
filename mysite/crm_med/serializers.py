@@ -247,6 +247,12 @@ class DepartmentPatientSerializer(serializers.ModelSerializer):
         fields = ['id', 'department_name', 'patients']
 
 
+class DepartmentListSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Department
+        fields = ['id', 'department_name']
+
+
 class DepartmentServicesSerializer(serializers.ModelSerializer):
     department_services = ServiceTypeSerializer(many=True, read_only=True)
 
