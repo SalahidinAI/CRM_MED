@@ -44,22 +44,16 @@ class UserProfile(AbstractUser):
 
 
 class Admin(UserProfile):
-    pass
-    # role = models.CharField(max_length=16, choices=ROLE_CHOICES, default='admin')
-
     def __str__(self):
-        return f'{self.username}'
+        return f'{self.id} {self.username}'
 
     class Meta:
         verbose_name = 'Admin'
 
 
 class Receptionist(UserProfile):
-    pass
-    # role = models.CharField(max_length=16, choices=ROLE_CHOICES, default='receptionist')
-
     def __str__(self):
-        return f'{self.username}'
+        return f'{self.id} {self.username}'
 
     class Meta:
         verbose_name = 'Receptionist'
@@ -76,14 +70,14 @@ class JobTitle(models.Model):
     job_title = models.CharField(max_length=64, unique=True)
 
     def __str__(self):
-        return f'{self.job_title}'
+        return f'{self.id} {self.job_title}'
 
 
 class Room(models.Model):
     room_number = models.PositiveSmallIntegerField(unique=True)
 
     def __str__(self):
-        return f'{self.room_number}'
+        return f'{self.id} {self.room_number}'
 
 
 class Doctor(UserProfile):
@@ -93,7 +87,6 @@ class Doctor(UserProfile):
     bonus = models.PositiveSmallIntegerField(default=5, validators=[
         MinValueValidator(5), MaxValueValidator(60)
     ])
-    # role = models.CharField(max_length=16, choices=ROLE_CHOICES, default='doctor')
 
     def __str__(self):
         return f'{self.id} {self.username} - {self.room}'
@@ -108,7 +101,7 @@ class ServiceType(models.Model):
     price = models.PositiveSmallIntegerField()
 
     def __str__(self):
-        return f'{self.department}: {self.type} - {self.price}'
+        return f'{self.id} {self.department}: {self.type} - {self.price}'
 
     class Meta:
         unique_together = ('type', 'department')
@@ -137,48 +130,3 @@ class Patient(models.Model):
     class Meta:
         ordering = ('-appointment_date',)
 
-
-# ADMIN:
-# image
-# username
-# email
-# phone
-# password
-# role
-
-
-# RECEPTIONIST:
-# image
-# username
-# email
-# phone
-# password
-# role (foreignkey) (admin, receptionist, dentist, surgeon)
-
-
-# DOCTOR:
-# image
-# username (first and last)
-# phone
-# department (foreignkey)
-# role
-# job_title (foreignkey) (receptionist, dentist, surgeon)
-# password
-# room (foreignkey)
-# email
-# bonus %
-
-# PATIENT:
-# name (first and last)
-# phone
-# service_type (choices) (type and price должны быть отдельными полями + foreignkey -> department)
-# birthday (date)
-# department (foreignkey)
-# registrar (регистратор) foreignkey
-# date_appointment (datetime)
-# gender (choices)
-# doctor (Foreignkey)
-# payment_type (наличные или перевод) choices)
-# patient_status (choices) (предварительная запись, в ожидании, был в приеме, отменено)
-# with_discount (сумма оплаты) (если это поле пуста то будем считать сумму в service_type
-# created_date (date)
