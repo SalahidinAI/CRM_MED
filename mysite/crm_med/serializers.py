@@ -72,7 +72,7 @@ class ReceptionistNameSerializer(serializers.ModelSerializer):
 class JobTitleSerializer(serializers.ModelSerializer):
     class Meta:
         model = JobTitle
-        fields = ['job_title']
+        fields = ['id', 'job_title']
 
 
 class RoomSerializer(serializers.ModelSerializer):
