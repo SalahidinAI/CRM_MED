@@ -250,7 +250,7 @@ class PatientInfoAPIView(generics.RetrieveAPIView):
 
 
 class ReceptionistEditAPIView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = Receptionist.objects.all()
+    queryset = UserProfile.objects.all()
     serializer_class = ReceptionistSerializer
     permission_classes = [IsAdmin | IsReceptionist]
 
