@@ -748,7 +748,6 @@ class AnalysisAPIView(APIView):
         ).count()
         fall_percent = 0 if not total_patients else fall / total_patients * 100
         rise_percent = 0 if not total_patients else 100 - fall_percent
-        print(f'total: {total_patients}, fall: {fall}, f_per: {fall_percent}, r_per: {rise_percent}')
 
         chart = []
         if period == "yearly":
