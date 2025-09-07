@@ -250,7 +250,7 @@ class PatientInfoAPIView(generics.RetrieveAPIView):
 
 
 class ReceptionistEditAPIView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = Patient.objects.all()
+    queryset = Receptionist.objects.all()
     serializer_class = ReceptionistSerializer
     permission_classes = [IsAdmin | IsReceptionist]
 
@@ -263,12 +263,10 @@ class DoctorListAPIView(generics.ListAPIView):
     def get_queryset(self):
         qs = Doctor.objects.all()
 
-        # Фильтр по департаменту
         department_id = self.request.query_params.get('department')
         if department_id:
             qs = qs.filter(department=department_id)
 
-        # Фильтр по имени (частичное совпадение, без учёта регистра)
         search_name = self.request.query_params.get('name')
         if search_name:
             qs = qs.filter(username__icontains=search_name)
@@ -366,11 +364,9 @@ class ReportExactAPIView(generics.ListAPIView):
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
 
-        # --- Если экспорт в Excel ---
         if request.query_params.get("export") == "excel":
             return self.export_to_excel(queryset)
 
-        # --- Подсчёты ---
         sum_discount = queryset.aggregate(
             total=Coalesce(Sum('with_discount', filter=Q(with_discount__isnull=False)), Value(0))
         )['total']
@@ -442,7 +438,6 @@ class ReportExactAPIView(generics.ListAPIView):
         ws = wb.active
         ws.title = "Patients"
 
-        # Заголовки по языку
         lang = self.request.LANGUAGE_CODE
         if lang == 'ru':
             headers = [
@@ -456,7 +451,6 @@ class ReportExactAPIView(generics.ListAPIView):
             ]
         ws.append(headers)
 
-        # Данные
         for p in queryset:
             price = p.with_discount if p.with_discount else p.service_type.price
             ws.append([
@@ -470,7 +464,6 @@ class ReportExactAPIView(generics.ListAPIView):
                 p.doctor.username,
             ])
 
-        # Итоговая строка с количеством и суммой
         total_price = sum(
             p.with_discount if p.with_discount else p.service_type.price
             for p in queryset
@@ -501,11 +494,9 @@ class ReportDoctorAPIView(generics.ListAPIView):
     def get_queryset(self):
         qs = Patient.objects.all()
 
-        # ! I don't know why we need this search_name
         search_doctor_name = self.request.query_params.get('name')
         doctor_id = self.request.query_params.get('doctor')
         date_str = self.request.query_params.get('date')
-        # Tiffany Hall
 
         if search_doctor_name:
             qs = qs.filter(doctor__username=search_doctor_name)
@@ -524,13 +515,11 @@ class ReportDoctorAPIView(generics.ListAPIView):
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
 
-        # Проверяем, нужно ли экспортировать Excel
         if request.query_params.get("export") == "excel":
             return self.export_to_excel(queryset)
 
         serializer = self.get_serializer(queryset, many=True)
 
-        # Считаем сумму цен
         total_price = sum(
             p.with_discount if p.with_discount else p.service_type.price
             for p in queryset
@@ -542,12 +531,10 @@ class ReportDoctorAPIView(generics.ListAPIView):
         })
 
     def export_to_excel(self, queryset):
-        # Создаем книгу и лист
         wb = openpyxl.Workbook()
         ws = wb.active
         ws.title = "Patients"
 
-        # Заголовки (локализация)
         lang = self.request.LANGUAGE_CODE
         if lang == 'ru':
             headers = ["ID", "Дата", "Имя", "Цена"]
@@ -556,7 +543,6 @@ class ReportDoctorAPIView(generics.ListAPIView):
 
         ws.append(headers)
 
-        # Данные
         for p in queryset:
             price = p.with_discount if p.with_discount else p.service_type.price
             ws.append([
@@ -566,7 +552,6 @@ class ReportDoctorAPIView(generics.ListAPIView):
                 price,
             ])
 
-        # Итоговая строка с суммой
         total_price = sum(
             p.with_discount if p.with_discount else p.service_type.price
             for p in queryset
@@ -574,7 +559,6 @@ class ReportDoctorAPIView(generics.ListAPIView):
         ws.append([])
         ws.append([_("Total"), "", "", total_price])
 
-        # Ответ с Excel
         response = HttpResponse(
             content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         )
@@ -582,16 +566,6 @@ class ReportDoctorAPIView(generics.ListAPIView):
         response['Content-Disposition'] = f'attachment; filename={filename}'
         wb.save(response)
         return response
-
-
-from django.http import HttpResponse
-from rest_framework import generics
-from rest_framework.exceptions import ValidationError
-from django.utils.dateparse import parse_date
-from openpyxl import Workbook
-from openpyxl.utils import get_column_letter
-
-from .models import Patient
 
 
 from django.http import HttpResponse
@@ -618,7 +592,6 @@ class ReportSummaryAPIView(generics.ListAPIView):
     def get_report_data(self):
         qs = Patient.objects.all()
 
-        # ! I don't know why we need this search_name
         search_name = self.request.query_params.get('name')
         date_from = self.request.query_params.get('date_from')
         date_to = self.request.query_params.get('date_to')
@@ -678,13 +651,11 @@ class ReportSummaryAPIView(generics.ListAPIView):
     def list(self, request, *args, **kwargs):
         report_data = self.get_report_data()
 
-        # Если экспорт в Excel
         if request.query_params.get('export') == 'excel':
             wb = Workbook()
             ws = wb.active
             ws.title = "Report Summary"
 
-            # Заголовки с учетом языка
             lang = self.request.LANGUAGE_CODE
             if lang == 'ru':
                 headers = [
@@ -703,7 +674,6 @@ class ReportSummaryAPIView(generics.ListAPIView):
 
             ws.append(headers)
 
-            # Данные
             ws.append([
                 report_data['doctor_cash'],
                 report_data['doctor_card'],
@@ -715,7 +685,6 @@ class ReportSummaryAPIView(generics.ListAPIView):
                 report_data['total_doctor'],
             ])
 
-            # Автоматическая ширина колонок
             for i, col in enumerate(ws.columns, start=1):
                 max_length = 0
                 column = get_column_letter(i)
@@ -728,7 +697,6 @@ class ReportSummaryAPIView(generics.ListAPIView):
                 adjusted_width = (max_length + 2)
                 ws.column_dimensions[column].width = adjusted_width
 
-            # HTTP-ответ
             response = HttpResponse(
                 content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
             )
@@ -737,7 +705,6 @@ class ReportSummaryAPIView(generics.ListAPIView):
             wb.save(response)
             return response
 
-        # Если Excel не нужен — JSON
         return Response(report_data)
 
 
@@ -748,7 +715,6 @@ class AnalysisAPIView(APIView):
         period = request.query_params.get("period", "weekly")
 
         now = timezone.now()
-        # Настраиваем интервалы
         if period == "daily":
             interval = timedelta(hours=2)  # 12 интервалов
             start_date = now - timedelta(days=1)
@@ -766,11 +732,9 @@ class AnalysisAPIView(APIView):
 
         patients_qs = Patient.objects.filter(appointment_date__gte=start_date, appointment_date__lte=now)
 
-        # кол-во докторов и пациентов.
         total_doctors = Doctor.objects.count()
         total_patients = patients_qs.count()
 
-        # новые и повторные пациенты.
         primary = 0
         for p in patients_qs:
             if p.primary_patient:
@@ -779,7 +743,6 @@ class AnalysisAPIView(APIView):
         primary_percent = 0 if not total_patients else primary / total_patients * 100
         repeated_percent = 0 if not total_patients else 100 - primary_percent
 
-        # рост и падение.
         fall = patients_qs.filter(
             patient_status='canceled',
         ).count()
@@ -787,10 +750,8 @@ class AnalysisAPIView(APIView):
         rise_percent = 0 if not total_patients else 100 - fall_percent
         print(f'total: {total_patients}, fall: {fall}, f_per: {fall_percent}, r_per: {rise_percent}')
 
-        # Строим интервалы для chart
         chart = []
         if period == "yearly":
-            # 12 интервалов по месяцам
             for m in range(1, 13):
                 start_month = start_date.replace(month=m, day=1)
                 if m == 12:
