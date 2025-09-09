@@ -327,6 +327,11 @@ class JobTitleAPIView(generics.ListAPIView):
     serializer_class = JobTitleSerializer
 
 
+class RoomAPIView(generics.ListAPIView):
+    queryset = Room.objects.all()
+    serializer_class = RoomSerializer
+
+
 class ReportExactAPIView(generics.ListAPIView):
     """
     Возвращает список пациентов, отфильтрованных по:

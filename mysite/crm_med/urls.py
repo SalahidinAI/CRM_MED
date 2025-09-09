@@ -43,4 +43,9 @@ urlpatterns = [
 
     # calendar
     path('calendar/', CalendarListAPIView.as_view(), name='calendar_list'),
+
+    # other
+    path('departments/', DepartmentListAPIView.as_view(), name='department_list'),
+    path('jobs/', JobTitleAPIView.as_view(), name='job_title_list'),
+    path('rooms/', RoomAPIView.as_view(), name='job_title_list'),
 ]
